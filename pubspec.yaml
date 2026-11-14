@@ -1,19 +1,67 @@
 name: unbroken_mobile
-description: "A new Flutter project."
+description: "A productivity mobile application."
 publish_to: 'none'
 version: 0.1.0+1
 
 environment:
-  sdk: ^3.13.2
+  sdk: ^3.10.0
 
 dependencies:
   flutter:
     sdk: flutter
+  flutter_bloc: ^9.1.1
+  flutter_riverpod: ^3.4.3
+  provider: ^6.1.2
+  flutter_screenutil: ^5.9.3
+  http: ^1.2.0
+  intl: ^0.19.0
+  package_info_plus: ^9.0.1
+  url_launcher: ^6.3.2
+  shared_preferences: ^2.5.5
+  flutter_cache_manager: ^3.3.1
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+  equatable: ^3.0.0
+  navigation_history_observer: ^1.1.1
+  recase: ^4.1.0
+  supercharged: ^2.1.1
+  themed: ^8.1.1
+  flutter_form_builder: ^10.0.1
+  flutter_lucide: ^1.53.0
+  device_info_plus: ^12.4.0
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
+  connectivity_plus: ^6.1.0
+  alice_lightweight: ^3.5.1
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
+  firebase_crashlytics: ^4.3.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  freezed: ^4.0.3
+  build_runner: ^2.17.1
+  json_serializable: ^6.15.2
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Poppins-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
