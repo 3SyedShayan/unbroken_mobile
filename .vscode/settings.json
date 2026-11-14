@@ -1,0 +1,37 @@
+{
+    "bedrock.profile": "default",
+    "dart.env": {
+        "PATH": "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:${env:PATH}"
+    },
+    "terminal.integrated.env.osx": {
+        "PATH": "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:${env:PATH}"
+    },
+    "files.exclude": {
+        "**/.dart_tool": true,
+        "**/.idea": true,
+        "**/.flutter-plugins-dependencies": true,
+        "**/.metadata": true,
+        "**/*.iml": true
+    },
+    "triggerTaskOnSave.tasks": {
+        "sweetpad: build": [
+            "**/*.swift"
+        ]
+    },
+    "triggerTaskOnSave.on": true,
+    "triggerTaskOnSave.showNotifications": false,
+    "triggerTaskOnSave.restart": true,
+    "triggerTaskOnSave.delay": 1000,
+    "triggerTaskOnSave.resultIndicatorResetTimeout": 5,
+    "workbench.colorCustomizations": {},
+    "sweetpad.format.args": [
+        "--in-place",
+        "--configuration",
+        ".vscode/.swift-format",
+        "${file}"
+    ],
+    "[swift]": {
+        "editor.defaultFormatter": "sweetpad.sweetpad",
+        "editor.formatOnSave": true
+    }
+}
