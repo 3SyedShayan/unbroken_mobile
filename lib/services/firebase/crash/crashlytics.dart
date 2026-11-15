@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -11,7 +12,7 @@ class EnhancedCrashlytics {
   EnhancedCrashlytics._();
 
   static EnhancedCrashlytics? _instance;
-  static late FirebaseCrashlytics _firebaseCrashlytics;
+  FirebaseCrashlytics? _firebaseCrashlytics;
   static String? _lastAction;
   bool _apiContextSet = false;
 
@@ -20,26 +21,64 @@ class EnhancedCrashlytics {
     return _instance!;
   }
 
+  FirebaseCrashlytics? get _crashlytics {
+    if (_firebaseCrashlytics != null) return _firebaseCrashlytics;
+    if (Firebase.apps.isNotEmpty) {
+      try {
+        _firebaseCrashlytics = FirebaseCrashlytics.instance;
+        return _firebaseCrashlytics;
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   Future<void> init() async {
     try {
-      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
-      _firebaseCrashlytics = FirebaseCrashlytics.instance;
+      if (Firebase.apps.isEmpty) {
+        'Firebase not initialized. Skipping Enhanced Crashlytics init.'.appLog(
+          level: AppLogLevel.warning,
+          tag: 'CRASHLYTICS',
+        );
+        return;
+      }
+
+      final crashlytics = FirebaseCrashlytics.instance;
+      await crashlytics.setCrashlyticsCollectionEnabled(true);
+      _firebaseCrashlytics = crashlytics;
 
       await _setAppVersionInfo();
 
-      final Function? originalOnError = FlutterError.onError;
+      final FlutterExceptionHandler? originalOnError = FlutterError.onError;
       FlutterError.onError = (FlutterErrorDetails errorDetails) async {
         /// Add navigation context to crashes
         await _addNavigationContext();
-        await _firebaseCrashlytics.recordFlutterError(errorDetails);
+        await _crashlytics?.recordFlutterError(errorDetails);
 
         /// Forward to original handler
-        originalOnError!(errorDetails);
+        originalOnError?.call(errorDetails);
       };
 
-      'Enhanced Crashlytics initialized successfully'.appLog();
+      PlatformDispatcher.instance.onError = (error, stack) {
+        _recordEvent(
+          error,
+          stack,
+          fatal: true,
+          reason: 'PlatformDispatcher unhandled error',
+        );
+        return true;
+      };
+
+      'Enhanced Crashlytics initialized successfully'.appLog(
+        level: AppLogLevel.info,
+        tag: 'CRASHLYTICS',
+      );
     } catch (e) {
-      throw Exception('Error in Enhanced Crashlytics init: $e');
+      'Error in Enhanced Crashlytics init: $e'.appLog(
+        level: AppLogLevel.error,
+        tag: 'CRASHLYTICS',
+      );
     }
   }
 
@@ -85,6 +124,9 @@ class EnhancedCrashlytics {
     bool includeNavigation = false,
     String? lastAction,
   }) async {
+    final crashlytics = _crashlytics;
+    if (crashlytics == null) return;
+
     try {
       /// Add navigation context if requested or if fatal, just to avoid extra memory usage
       /// we are not adding the navigation context for non-fatal errors. BUT, if needed
@@ -95,33 +137,24 @@ class EnhancedCrashlytics {
 
       // Add last action if provided
       if (lastAction != null) {
-        await _firebaseCrashlytics.setCustomKey('last_action', lastAction);
+        await crashlytics.setCustomKey('last_action', lastAction);
       } else if (_lastAction != null) {
-        await _firebaseCrashlytics.setCustomKey('last_action', _lastAction!);
+        await crashlytics.setCustomKey('last_action', _lastAction!);
       }
 
       if (exception is HttpFault) {
         final body = exception.body;
         Future.wait([
           if (body.status != null)
-            _firebaseCrashlytics.setCustomKey('api_status_code', body.status!),
+            crashlytics.setCustomKey('api_status_code', body.status!),
           if (body.message != null)
-            _firebaseCrashlytics.setCustomKey(
-              'api_response_message',
-              body.message!,
-            ),
+            crashlytics.setCustomKey('api_response_message', body.message!),
           if (body.data != null) ...[
-            _firebaseCrashlytics.setCustomKey(
-              'api_response',
-              body.data.toString(),
-            ),
+            crashlytics.setCustomKey('api_response', body.data.toString()),
             if (body.data!['uri'] != null)
-              _firebaseCrashlytics.setCustomKey(
-                'api_url',
-                body.data!['uri'].toString(),
-              ),
+              crashlytics.setCustomKey('api_url', body.data!['uri'].toString()),
             if (body.data!['method'] != null)
-              _firebaseCrashlytics.setCustomKey(
+              crashlytics.setCustomKey(
                 'api_method',
                 body.data!['method'].toString(),
               ),
@@ -131,52 +164,37 @@ class EnhancedCrashlytics {
         _apiContextSet = true;
       } else if (exception is http.ClientException) {
         Future.wait([
-          _firebaseCrashlytics.setCustomKey(
-            'api_response_message',
-            exception.message,
-          ),
+          crashlytics.setCustomKey('api_response_message', exception.message),
           if (exception.uri != null)
-            _firebaseCrashlytics.setCustomKey(
-              'api_url',
-              exception.uri.toString(),
-            ),
+            crashlytics.setCustomKey('api_url', exception.uri.toString()),
         ]);
         _apiContextSet = true;
       } else if (exception is http.Response) {
         Future.wait([
-          _firebaseCrashlytics.setCustomKey(
-            'api_status_code',
-            exception.statusCode,
-          ),
+          crashlytics.setCustomKey('api_status_code', exception.statusCode),
           if (exception.request != null) ...[
-            _firebaseCrashlytics.setCustomKey(
-              'api_method',
-              exception.request!.method,
-            ),
-            _firebaseCrashlytics.setCustomKey(
+            crashlytics.setCustomKey('api_method', exception.request!.method),
+            crashlytics.setCustomKey(
               'api_url',
               exception.request!.url.toString(),
             ),
           ],
           if (exception.body.isNotEmpty)
-            _firebaseCrashlytics.setCustomKey(
-              'api_response',
-              exception.body,
-            ),
+            crashlytics.setCustomKey('api_response', exception.body),
         ]);
         _apiContextSet = true;
       } else if (_apiContextSet) {
         Future.wait([
-          _firebaseCrashlytics.setCustomKey('api_status_code', 0),
-          _firebaseCrashlytics.setCustomKey('api_method', ''),
-          _firebaseCrashlytics.setCustomKey('api_url', ''),
-          _firebaseCrashlytics.setCustomKey('api_response', ''),
-          _firebaseCrashlytics.setCustomKey('api_response_message', ''),
+          crashlytics.setCustomKey('api_status_code', 0),
+          crashlytics.setCustomKey('api_method', ''),
+          crashlytics.setCustomKey('api_url', ''),
+          crashlytics.setCustomKey('api_response', ''),
+          crashlytics.setCustomKey('api_response_message', ''),
         ]);
         _apiContextSet = false;
       }
 
-      await _firebaseCrashlytics.recordError(
+      await crashlytics.recordError(
         exception,
         stackTrace,
         reason: reason,
@@ -196,7 +214,9 @@ class EnhancedCrashlytics {
   }
 
   void flog(String message) {
-    _firebaseCrashlytics.log(message);
+    try {
+      _crashlytics?.log(message);
+    } catch (_) {}
   }
 
   /// The only missing piece of the puzzle in Crashlytics are it doesn't
@@ -204,6 +224,9 @@ class EnhancedCrashlytics {
   /// that is recording the Navigation History. Hence, we'll be using that to have our
   /// history stored in Crashlytics.
   Future<void> _addNavigationContext() async {
+    final crashlytics = _crashlytics;
+    if (crashlytics == null) return;
+
     try {
       /// Get last 10 routes from RouteLogger, this is to avoid any memory issues
       /// with the navigation history.
@@ -213,7 +236,7 @@ class EnhancedCrashlytics {
           : routeHistory;
 
       // Set navigation breadcrumbs
-      await _firebaseCrashlytics.setCustomKey(
+      await crashlytics.setCustomKey(
         'navigation_history',
         last10Routes.join(' → '),
       );
@@ -226,11 +249,15 @@ class EnhancedCrashlytics {
   }
 
   Future<void> _setAppVersionInfo() async {
-    await _firebaseCrashlytics.setCustomKey('flavor', Env.current.flavor.name);
+    try {
+      await _crashlytics?.setCustomKey('flavor', Env.current.flavor.name);
+    } catch (_) {}
   }
 
   void setCustomKey(String key, dynamic value) {
-    _firebaseCrashlytics.setCustomKey(key, value);
+    try {
+      _crashlytics?.setCustomKey(key, value);
+    } catch (_) {}
   }
 
   /// Track user action for crash context, this might NOT be used very much
@@ -242,7 +269,9 @@ class EnhancedCrashlytics {
 
   Future<void> setUserContext({String? userId}) async {
     if (userId != null) {
-      await _firebaseCrashlytics.setUserIdentifier(userId);
+      try {
+        await _crashlytics?.setUserIdentifier(userId);
+      } catch (_) {}
     }
   }
 
@@ -253,7 +282,7 @@ class EnhancedCrashlytics {
       !kReleaseMode,
       'testCrash() should only be used in debug/profile mode',
     );
-    _firebaseCrashlytics.crash();
+    _crashlytics?.crash();
   }
 
   /// Test navigation tracking

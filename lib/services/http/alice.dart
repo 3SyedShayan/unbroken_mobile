@@ -7,7 +7,6 @@ import 'package:alice_lightweight/model/alice_http_request.dart';
 import 'package:alice_lightweight/model/alice_http_response.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:unbroken_mobile/router/router.dart';
 
 part 'interceptors/alice_http_client.dart';
 

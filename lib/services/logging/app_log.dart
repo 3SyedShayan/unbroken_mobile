@@ -1,14 +1,14 @@
 import 'dart:developer';
 import 'dart:io';
 
-import '../firebase/crash/crashlytics.dart';
+import 'package:unbroken_mobile/services/firebase/crash/crashlytics.dart';
 
 enum AppLogLevel {
   debug('\x1B[37m'), // White
   info('\x1B[36m'), // Cyan
   warning('\x1B[33m'), // Yellow
   error('\x1B[31m'), // Red
-  success('\x1B[32m'), // Green
+  success('\x1B[32m') // Green
   ;
 
   final String colorCode;
