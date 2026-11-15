@@ -9,9 +9,26 @@ class _ScreenState extends ChangeNotifier {
   }
 
   Future<void> _init(BuildContext context) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (context.mounted) {
-      AppRoutes.home.pushReplace(context);
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!context.mounted) return;
+
+    final authCubit = AuthCubit.c(context);
+    final user = authCubit.state.user;
+
+    if (user != null) {
+      // Start observing user streams
+      HabitsCubit.c(context).startObserving(user.uid);
+      FocusCubit.c(context).startObserving(user.uid);
+      SettingsCubit.c(context).startObserving(user.uid);
+
+      final settings = SettingsCubit.c(context).state.settings;
+      if (!settings.hasOnboarded) {
+        AppRoutes.onboarding.pushReplace(context);
+      } else {
+        AppRoutes.home.pushReplace(context);
+      }
+    } else {
+      AppRoutes.login.pushReplace(context);
     }
   }
 }

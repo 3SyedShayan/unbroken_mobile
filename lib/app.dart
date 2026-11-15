@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-// ignore: unused_import
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:navigation_history_observer/navigation_history_observer.dart';
 import 'package:provider/provider.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
 import 'package:unbroken_mobile/core/bindings/app_core_binding.dart';
-// bloc-imports-start
-// bloc-imports-end
+import 'package:unbroken_mobile/features/core/auth/viewmodel/cubit.dart';
+import 'package:unbroken_mobile/features/core/focus/viewmodel/cubit.dart';
+import 'package:unbroken_mobile/features/core/habits/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/support/connectivity/views/widgets/network_connectivity_overlay.dart';
+import 'package:unbroken_mobile/features/support/settings/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/router/router.dart';
 import 'package:unbroken_mobile/router/routes.dart';
 import 'package:unbroken_mobile/services/logging/route_logger.dart';
@@ -20,8 +21,10 @@ class MainMobileApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ...AppCoreBinding.providers,
-        // bloc-initiate-start
-        // bloc-initiate-end
+        BlocProvider<AuthCubit>(create: (_) => AuthCubit()),
+        BlocProvider<SettingsCubit>(create: (_) => SettingsCubit()),
+        BlocProvider<HabitsCubit>(create: (_) => HabitsCubit()),
+        BlocProvider<FocusCubit>(create: (_) => FocusCubit()),
       ],
       child: const _AppShell(),
     );
