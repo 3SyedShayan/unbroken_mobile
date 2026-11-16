@@ -1,8 +1,8 @@
 part of 'auth_repo.dart';
 
 class _AuthProvider {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  FirebaseAuth get _auth => FirebaseAuth.instance;
+  GoogleSignIn get _googleSignIn => GoogleSignIn();
 
   Stream<Map<String, dynamic>?> authStateChanges() {
     return _auth.authStateChanges().map(_mapUser);

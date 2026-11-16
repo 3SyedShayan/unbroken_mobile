@@ -1,10 +1,13 @@
 part of 'focus_repo.dart';
 
 class _FocusProvider {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> _userFocus(String uid) =>
-      _firestore.collection('users').doc(uid).collection('focus');
+      _firestore
+          .collection(Collections.users)
+          .doc(uid)
+          .collection(Collections.focus);
 
   Stream<List<Map<String, dynamic>>> observeFocus(
     String uid, {

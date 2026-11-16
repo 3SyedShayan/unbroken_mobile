@@ -1,14 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:unbroken_mobile/services/fault/faults.dart';
+import 'package:unbroken_mobile/services/firebase/collections.dart';
 
 part '_habits_provider.dart';
 
 class HabitsRepo {
-  static final HabitsRepo _instance = HabitsRepo._();
+  static HabitsRepo _instance = HabitsRepo._();
   HabitsRepo._();
   factory HabitsRepo() => _instance;
+
+  @visibleForTesting
+  HabitsRepo.test();
+
   static HabitsRepo get ins => _instance;
+
+  @visibleForTesting
+  static set ins(HabitsRepo repo) => _instance = repo;
 
   final _provider = _HabitsProvider();
 

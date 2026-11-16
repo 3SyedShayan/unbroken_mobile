@@ -1,10 +1,10 @@
 part of 'settings_repo.dart';
 
 class _SettingsProvider {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
-      _firestore.collection('users').doc(uid);
+      _firestore.collection(Collections.users).doc(uid);
 
   Stream<Map<String, dynamic>?> observeSettings(String uid) {
     return _userDoc(uid).snapshots().map((snapshot) {

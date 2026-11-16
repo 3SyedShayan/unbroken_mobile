@@ -1,13 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:unbroken_mobile/services/fault/faults.dart';
+import 'package:unbroken_mobile/services/firebase/collections.dart';
 
 part '_focus_provider.dart';
 
 class FocusRepo {
-  static final FocusRepo _instance = FocusRepo._();
+  static FocusRepo _instance = FocusRepo._();
   FocusRepo._();
   factory FocusRepo() => _instance;
+
+  @visibleForTesting
+  FocusRepo.test();
+
   static FocusRepo get ins => _instance;
+
+  @visibleForTesting
+  static set ins(FocusRepo repo) => _instance = repo;
 
   final _provider = _FocusProvider();
 

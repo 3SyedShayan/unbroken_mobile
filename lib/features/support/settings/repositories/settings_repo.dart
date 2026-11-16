@@ -1,14 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unbroken_mobile/services/fault/faults.dart';
+import 'package:unbroken_mobile/services/firebase/collections.dart';
 
 part '_settings_provider.dart';
 
 class SettingsRepo {
-  static final SettingsRepo _instance = SettingsRepo._();
+  static SettingsRepo _instance = SettingsRepo._();
   SettingsRepo._();
   factory SettingsRepo() => _instance;
+
+  @visibleForTesting
+  SettingsRepo.test();
+
   static SettingsRepo get ins => _instance;
+
+  @visibleForTesting
+  static set ins(SettingsRepo repo) => _instance = repo;
 
   final _provider = _SettingsProvider();
 

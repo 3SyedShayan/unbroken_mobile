@@ -1,13 +1,19 @@
 part of 'habits_repo.dart';
 
 class _HabitsProvider {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> _userHabits(String uid) =>
-      _firestore.collection('users').doc(uid).collection('habits');
+      _firestore
+          .collection(Collections.users)
+          .doc(uid)
+          .collection(Collections.habits);
 
   CollectionReference<Map<String, dynamic>> _userEntries(String uid) =>
-      _firestore.collection('users').doc(uid).collection('entries');
+      _firestore
+          .collection(Collections.users)
+          .doc(uid)
+          .collection(Collections.entries);
 
   Stream<List<Map<String, dynamic>>> observeHabits(String uid) {
     return _userHabits(uid).snapshots().map((snapshot) {
