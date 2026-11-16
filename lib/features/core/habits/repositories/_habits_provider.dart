@@ -50,6 +50,10 @@ class _HabitsProvider {
         payload['createdAt'] = FieldValue.serverTimestamp();
       }
 
+      if (payload['lastCompletedDayKey'] == null) {
+        payload.remove('lastCompletedDayKey');
+      }
+
       await docRef.set(payload, SetOptions(merge: true));
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
