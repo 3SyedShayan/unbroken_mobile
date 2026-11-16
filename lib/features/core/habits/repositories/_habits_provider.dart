@@ -106,23 +106,13 @@ class _HabitsProvider {
       final entryId = '${cleanHabitId}_$logicalDayKey';
       final entryRef = _userEntries(uid).doc(entryId);
 
-      final String platform;
-      if (kIsWeb) {
-        platform = 'web';
-      } else {
-        platform = switch (defaultTargetPlatform) {
-          TargetPlatform.iOS => 'ios',
-          TargetPlatform.android => 'android',
-          TargetPlatform.macOS => 'macos',
-          _ => 'ios',
-        };
-      }
+      final isIos = defaultTargetPlatform == TargetPlatform.iOS;
       final payload = <String, dynamic>{
         'id': entryId,
         'habitId': cleanHabitId,
         'logicalDayKey': logicalDayKey,
         'source': 'mobile',
-        'platform': platform,
+        'platform': isIos ? 'ios' : 'android',
         'timestamp': FieldValue.serverTimestamp(),
       };
 
