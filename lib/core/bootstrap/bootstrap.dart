@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unbroken_mobile/app.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
 import 'package:unbroken_mobile/core/env/app_env.dart';
+import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/firebase_options.dart';
+import 'package:unbroken_mobile/services/cache/cache_service.dart';
 import 'package:unbroken_mobile/services/firebase/crash/crashlytics.dart';
 
 Future<void> bootstrap([String? rawFlavor]) async {
@@ -39,7 +41,12 @@ Future<void> bootstrap([String? rawFlavor]) async {
     debugPrint('[FirebaseBootstrap] Initialization notice: $e');
   }
 
-  // 4. Initialize Typography
+  // 4. Register cache purge on user sign-out
+  SignOutCleanupRegistry.ins.register(() {
+    unawaited(CacheService.ins.clearAll());
+  });
+
+  // 5. Initialize Typography
   AppText.init();
 
   // 5. Device orientation & runApp

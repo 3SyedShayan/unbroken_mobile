@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
+import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/features/support/settings/models/day_settings.dart';
 import 'package:unbroken_mobile/features/support/settings/repositories/settings_repo.dart';
 
@@ -24,6 +25,19 @@ class SettingsCubit extends Cubit<SettingsState> {
           fetch: BlocState<DaySettings>(),
           update: BlocState<void>(),
         )) {
+    SignOutCleanupRegistry.ins.register(_clearOnSignOut);
+    _loadLocal();
+  }
+
+  void _clearOnSignOut() {
+    _sub?.cancel();
+    _sub = null;
+    _currentUid = null;
+    emit(SettingsState(
+      settings: const DaySettings(),
+      fetch: BlocState<DaySettings>(),
+      update: BlocState<void>(),
+    ));
     _loadLocal();
   }
 

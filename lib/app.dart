@@ -54,6 +54,19 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    if (state == AppLifecycleState.resumed) {
+      // Re-trigger date / active day check on resume (e.g. overnight 3:00 AM rollover)
+      setState(() {});
+      try {
+        HabitsCubit.c(context).onAppResumed();
+        FocusCubit.c(context).onAppResumed();
+      } catch (_) {}
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Unbroken',

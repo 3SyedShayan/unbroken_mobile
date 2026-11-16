@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
+import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/features/core/habits/domain/streak_calculator.dart';
 import 'package:unbroken_mobile/features/core/habits/models/entry.dart';
 import 'package:unbroken_mobile/features/core/habits/models/habit.dart';
@@ -28,7 +29,35 @@ class HabitsCubit extends Cubit<HabitsState> {
         super(HabitsState(
           fetch: BlocState<List<Habit>>(),
           action: BlocState<void>(),
-        ));
+        )) {
+    SignOutCleanupRegistry.ins.register(_clearOnSignOut);
+  }
+
+  void _clearOnSignOut() {
+    _habitsSub?.cancel();
+    _entriesSub?.cancel();
+    _habitsSub = null;
+    _entriesSub = null;
+    _currentUid = null;
+    emit(HabitsState(
+      fetch: BlocState<List<Habit>>(),
+      action: BlocState<void>(),
+    ));
+  }
+
+  void onAppResumed() {
+    if (_currentUid != null) {
+      final ninetyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
+      final windowKey = DaySettings.dayKey(ninetyDaysAgo);
+      _entriesSub?.cancel();
+      _entriesSub = _repo
+          .observeEntries(_currentUid!, windowStartKey: windowKey)
+          .listen((rawList) {
+        final entries = rawList.map((m) => Entry.fromJson(m)).toList();
+        emit(state.copyWith(entries: entries));
+      });
+    }
+  }
 
   void startObserving(String uid) {
     if (_currentUid == uid && _habitsSub != null) return;

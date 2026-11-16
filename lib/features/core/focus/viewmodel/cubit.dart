@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
+import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/features/core/focus/domain/focus_streak_calculator.dart';
 import 'package:unbroken_mobile/features/core/focus/models/daily_focus.dart';
 import 'package:unbroken_mobile/features/core/focus/models/daily_task_result.dart';
@@ -28,7 +29,36 @@ class FocusCubit extends Cubit<FocusState> {
         super(FocusState(
           fetch: BlocState<List<DailyFocus>>(),
           action: BlocState<void>(),
+        )) {
+    SignOutCleanupRegistry.ins.register(_clearOnSignOut);
+  }
+
+  void _clearOnSignOut() {
+    _sub?.cancel();
+    _sub = null;
+    _currentUid = null;
+    emit(FocusState(
+      fetch: BlocState<List<DailyFocus>>(),
+      action: BlocState<void>(),
+    ));
+  }
+
+  void onAppResumed() {
+    if (_currentUid != null) {
+      final ninetyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
+      final windowKey = DaySettings.dayKey(ninetyDaysAgo);
+      _sub?.cancel();
+      _sub = _repo
+          .observeFocus(_currentUid!, windowStartKey: windowKey)
+          .listen((rawList) {
+        final list = rawList.map((m) => DailyFocus.fromJson(m)).toList();
+        emit(state.copyWith(
+          focusList: list,
+          fetch: state.fetch.toSuccess(data: list),
         ));
+      });
+    }
+  }
 
   static List<FocusItem> get emptyThree => [
         const FocusItem(id: 's0', text: '', done: false),
