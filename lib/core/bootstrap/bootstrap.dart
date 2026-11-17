@@ -12,6 +12,7 @@ import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/firebase_options.dart';
 import 'package:unbroken_mobile/services/cache/cache_service.dart';
 import 'package:unbroken_mobile/services/firebase/crash/crashlytics.dart';
+import 'package:unbroken_mobile/services/notifications/local_notification_service.dart';
 
 Future<void> bootstrap([String? rawFlavor]) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +50,14 @@ Future<void> bootstrap([String? rawFlavor]) async {
   // 5. Initialize Typography
   AppText.init();
 
-  // 5. Device orientation & runApp
+  // 6. Initialize Local Notifications
+  try {
+    await LocalNotificationService.ins.init();
+  } catch (e) {
+    debugPrint('[NotificationBootstrap] Initialization notice: $e');
+  }
+
+  // 7. Device orientation & runApp
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const ProviderScope(child: MainMobileApp()));
 }
