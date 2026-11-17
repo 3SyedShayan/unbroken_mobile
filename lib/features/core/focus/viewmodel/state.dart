@@ -45,7 +45,7 @@ class FocusState extends Equatable {
     final results = <DailyTaskResult>[];
     for (final focus in focusList) {
       final parsed = DaySettings.startOfDay(focus.logicalDayKey);
-      if (parsed != null) {
+      if (parsed != null && focus.itemsList.isNotEmpty) {
         results.add(DailyTaskResult(
           dayKey: focus.logicalDayKey,
           day: parsed,

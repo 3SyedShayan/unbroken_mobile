@@ -18,22 +18,20 @@ abstract class DailyFocus with _$DailyFocus {
       _$DailyFocusFromJson(json);
 
   List<FocusItem> get itemsList {
+    final sortedKeys = slots.keys.toList()
+      ..sort((a, b) => (int.tryParse(a) ?? 0).compareTo(int.tryParse(b) ?? 0));
     final list = <FocusItem>[];
-    for (var i = 0; i < 3; i++) {
-      final key = i.toString();
-      if (slots.containsKey(key)) {
-        list.add(slots[key]!);
-      } else {
-        list.add(FocusItem(id: 's$i', text: '', done: false));
+    for (final key in sortedKeys) {
+      final item = slots[key];
+      if (item != null && item.text.trim().isNotEmpty) {
+        list.add(item);
       }
     }
     return list;
   }
 
   bool get isCleared {
-    final written =
-        itemsList.where((item) => item.text.trim().isNotEmpty).toList();
-    return written.isNotEmpty && written.every((item) => item.done);
+    return itemsList.isNotEmpty && itemsList.every((item) => item.done);
   }
 }
 

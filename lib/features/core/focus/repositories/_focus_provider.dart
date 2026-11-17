@@ -18,7 +18,13 @@ class _FocusProvider {
       query = query.where('logicalDayKey', isGreaterThanOrEqualTo: windowStartKey);
     }
     return query.snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => _cleanDoc(doc.data())).toList();
+      return snapshot.docs.map((doc) {
+        final data = _cleanDoc(doc.data());
+        if (!data.containsKey('logicalDayKey') || data['logicalDayKey'] == null) {
+          data['logicalDayKey'] = doc.id;
+        }
+        return data;
+      }).toList();
     });
   }
 

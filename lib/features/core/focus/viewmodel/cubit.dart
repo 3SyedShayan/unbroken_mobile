@@ -60,6 +60,8 @@ class FocusCubit extends Cubit<FocusState> {
     }
   }
 
+  static const int maxTasks = 10;
+
   static List<FocusItem> get emptyThree => [
         const FocusItem(id: 's0', text: '', done: false),
         const FocusItem(id: 's1', text: '', done: false),
@@ -90,19 +92,27 @@ class FocusCubit extends Cubit<FocusState> {
   }) async {
     final dayKey = settings.logicalDayKey(asOf);
     final current = state.focusForDay(dayKey);
-    final items = current.itemsList;
+    final items = List<FocusItem>.from(current.itemsList);
     if (index >= items.length) return;
 
     final target = items[index];
     if (target.text.trim().isEmpty) return;
 
-    if (settings.streakSounds) {
-      SystemSound.play(SystemSoundType.click);
-      HapticFeedback.lightImpact();
-    }
-
     final updatedItem = target.copyWith(done: !target.done);
     items[index] = updatedItem;
+
+    final willBeCleared =
+        items.isNotEmpty && items.every((it) => it.done && it.text.trim().isNotEmpty);
+
+    if (settings.streakSounds) {
+      if (willBeCleared && !current.isCleared) {
+        HapticFeedback.heavyImpact();
+        SystemSound.play(SystemSoundType.alert);
+      } else {
+        SystemSound.play(SystemSoundType.click);
+        HapticFeedback.lightImpact();
+      }
+    }
 
     await _commitItems(dayKey: dayKey, items: items);
   }
@@ -115,15 +125,30 @@ class FocusCubit extends Cubit<FocusState> {
   }) async {
     final dayKey = settings.logicalDayKey(asOf);
     final current = state.focusForDay(dayKey);
-    final items = current.itemsList;
+    final items = List<FocusItem>.from(current.itemsList);
     if (index >= items.length) return;
 
-    final updatedItem = items[index].copyWith(
-      text: text,
-      done: text.trim().isEmpty ? false : items[index].done,
-    );
-    items[index] = updatedItem;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      items.removeAt(index);
+    } else {
+      items[index] = items[index].copyWith(text: text);
+    }
 
+    await _commitItems(dayKey: dayKey, items: items);
+  }
+
+  Future<void> deleteTask({
+    required int index,
+    required DateTime asOf,
+    required DaySettings settings,
+  }) async {
+    final dayKey = settings.logicalDayKey(asOf);
+    final current = state.focusForDay(dayKey);
+    final items = List<FocusItem>.from(current.itemsList);
+    if (index < 0 || index >= items.length) return;
+
+    items.removeAt(index);
     await _commitItems(dayKey: dayKey, items: items);
   }
 
@@ -131,15 +156,8 @@ class FocusCubit extends Cubit<FocusState> {
     required int index,
     required DateTime asOf,
     required DaySettings settings,
-  }) async {
-    final dayKey = settings.logicalDayKey(asOf);
-    final current = state.focusForDay(dayKey);
-    final items = current.itemsList;
-    if (index >= items.length) return;
-
-    items[index] = FocusItem(id: 's$index', text: '', done: false);
-    await _commitItems(dayKey: dayKey, items: items);
-  }
+  }) =>
+      deleteTask(index: index, asOf: asOf, settings: settings);
 
   Future<void> addTask({
     required String text,
@@ -151,17 +169,15 @@ class FocusCubit extends Cubit<FocusState> {
 
     final dayKey = settings.logicalDayKey(asOf);
     final current = state.focusForDay(dayKey);
-    final items = current.itemsList;
+    final items = List<FocusItem>.from(current.itemsList);
 
-    // Place in the first empty slot or replace slot 2
-    final emptyIndex = items.indexWhere((it) => it.text.trim().isEmpty);
-    final targetIndex = emptyIndex != -1 ? emptyIndex : 2;
+    if (items.length >= maxTasks) return;
 
-    items[targetIndex] = FocusItem(
-      id: 's$targetIndex',
+    items.add(FocusItem(
+      id: 's${items.length}_${DateTime.now().millisecondsSinceEpoch}',
       text: trimmed,
       done: false,
-    );
+    ));
 
     await _commitItems(dayKey: dayKey, items: items);
   }
@@ -175,7 +191,7 @@ class FocusCubit extends Cubit<FocusState> {
     final currentToday = state.focusForDay(todayKey);
 
     // If today already has tasks written, do not overwrite
-    if (currentToday.itemsList.any((it) => it.text.trim().isNotEmpty)) return;
+    if (currentToday.itemsList.isNotEmpty) return;
 
     final yesterday = settings.logicalDay(asOf).subtract(const Duration(days: 1));
     final yesterdayKey = DaySettings.dayKey(yesterday);
@@ -186,13 +202,13 @@ class FocusCubit extends Cubit<FocusState> {
 
     if (unfinished.isEmpty) return;
 
-    final newItems = emptyThree;
-    for (var i = 0; i < unfinished.length && i < 3; i++) {
-      newItems[i] = FocusItem(
+    final newItems = <FocusItem>[];
+    for (var i = 0; i < unfinished.length && i < maxTasks; i++) {
+      newItems.add(FocusItem(
         id: 's$i',
         text: unfinished[i].text,
         done: false,
-      );
+      ));
     }
 
     await _commitItems(dayKey: todayKey, items: newItems);
@@ -204,11 +220,31 @@ class FocusCubit extends Cubit<FocusState> {
   }) async {
     if (_currentUid == null) return;
 
+    final validItems = items.where((it) => it.text.trim().isNotEmpty).toList();
+
+    if (validItems.isEmpty) {
+      // If all items are deleted/blank, delete the daily focus record to match macOS
+      final copy = List<DailyFocus>.from(state.focusList)
+        ..removeWhere((f) => f.logicalDayKey == dayKey);
+      emit(state.copyWith(focusList: copy));
+
+      try {
+        await _repo.deleteFocus(_currentUid!, dayKey);
+      } on Fault catch (f) {
+        emit(state.copyWith(action: state.action.toFailed(fault: f)));
+      } catch (e, s) {
+        emit(state.copyWith(
+          action: state.action.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
+        ));
+      }
+      return;
+    }
+
     final slotsMap = <String, FocusItem>{};
-    for (var i = 0; i < 3; i++) {
-      slotsMap[i.toString()] = i < items.length
-          ? items[i]
-          : FocusItem(id: 's$i', text: '', done: false);
+    for (var i = 0; i < validItems.length && i < maxTasks; i++) {
+      slotsMap[i.toString()] = validItems[i].copyWith(
+        id: validItems[i].id.isNotEmpty ? validItems[i].id : 's$i',
+      );
     }
 
     final updated = DailyFocus(logicalDayKey: dayKey, slots: slotsMap);

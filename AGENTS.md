@@ -125,6 +125,18 @@ Code is organized by business feature domain (`lib/features/core/<feature_name>/
   2. Stop execution immediately and present the document for user review.
   3. Never proceed with implementation code or modifications until the user explicitly approves and directs you to proceed.
 
+### 10. Cross-Platform Sync Protocol (`SYNC_QUEUE.md`)
+* **Shared File:** `SYNC_QUEUE.md` is symlinked between `unbroken` (macOS Swift) and `unbroken_mobile` (Flutter).
+* **Outbound Sync (When Modifying Shared Concepts):** Whenever you modify domain models, Firestore schemas/rules, design tokens, or shared feature logic in this project:
+  1. Add an entry under `## 📋 Active Queue` in `SYNC_QUEUE.md`.
+  2. Mark `[x] Mobile: Done` and `[ ] macOS: PENDING`.
+  3. Detail what changed, target files in `unbroken`, and acceptance criteria.
+* **Inbound Sync (When Asked to Sync with macOS):** When instructed to sync with macOS or process `SYNC_QUEUE.md`:
+  1. Open `SYNC_QUEUE.md` and locate all items marked `[ ] Mobile: PENDING`.
+  2. Implement changes in the specified target files in this project.
+  3. Verify with `flutter test` and `dart analyze`.
+  4. Check off `[x] Mobile: Done`. Once both platforms are done, move the entry to `Completed Archive`.
+
 ---
 
 ## ✅ Pre-Completion Quality Gate

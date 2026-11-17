@@ -29,6 +29,8 @@ class _HistoryTab extends StatelessWidget {
             return BlocBuilder<FocusCubit, FocusState>(
               builder: (context, focusState) {
                 final taskResults = focusState.dailyTaskResults;
+                final taskStreak = focusState.streakStats(asOf: now, settings: settings);
+                final clearedTaskDays = taskResults.where((r) => r.isCleared).length;
 
                 return SafeArea(
                   child: ListView(
@@ -65,6 +67,12 @@ class _HistoryTab extends StatelessWidget {
                         Text(
                           'DAILY TASKS HISTORY',
                           style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 1.2),
+                        ),
+                        Space.y.t12,
+                        _TaskStreaksSummaryCards(
+                          currentStreak: taskStreak.current,
+                          bestStreak: taskStreak.best,
+                          clearedDays: clearedTaskDays,
                         ),
                         Space.y.t12,
                         for (final result in taskResults.take(15)) ...[
@@ -216,44 +224,141 @@ class _HabitContributionCard extends StatelessWidget {
   }
 }
 
-class _TaskResultCard extends StatelessWidget {
+class _TaskStreaksSummaryCards extends StatelessWidget {
+  final int currentStreak;
+  final int bestStreak;
+  final int clearedDays;
+
+  const _TaskStreaksSummaryCards({
+    required this.currentStreak,
+    required this.bestStreak,
+    required this.clearedDays,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    App.init(context);
+    return Row(
+      children: [
+        Expanded(child: _SummaryTile(value: '$currentStreak', label: 'Current streak')),
+        Space.x.t08,
+        Expanded(child: _SummaryTile(value: '$bestStreak', label: 'Best streak')),
+        Space.x.t08,
+        Expanded(child: _SummaryTile(value: '$clearedDays', label: 'Days cleared')),
+      ],
+    );
+  }
+}
+
+class _TaskResultCard extends StatefulWidget {
   final DailyTaskResult result;
 
   const _TaskResultCard({required this.result});
 
   @override
+  State<_TaskResultCard> createState() => _TaskResultCardState();
+}
+
+class _TaskResultCardState extends State<_TaskResultCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     App.init(context);
-    final formattedDate = DateFormat('EEE, MMM d').format(result.day);
+    final formattedDate = DateFormat('EEE, MMM d').format(widget.result.day);
 
-    return Container(
-      padding: Space.sym(14, 10),
-      decoration: BoxDecoration(
-        color: AppColors.specBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(
-                result.isCleared ? Icons.check_circle : Icons.radio_button_unchecked,
-                size: 16,
-                color: result.isCleared ? AppColors.accent : AppColors.hint,
-              ),
-              Space.x.t12,
-              Text(formattedDate, style: AppText.b1.cl(AppColors.text)),
-            ],
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _expanded = !_expanded;
+        });
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: AppProps.fast,
+        padding: Space.sym(14, 10),
+        decoration: BoxDecoration(
+          color: AppColors.specBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: widget.result.isCleared
+                ? AppColors.accent.withValues(alpha: 0.3)
+                : AppColors.border,
+            width: 1,
           ),
-          Text(
-            '${result.completedCount} of ${result.totalCount} done',
-            style: AppText.b2b.cl(
-              result.isCleared ? AppColors.accent : AppColors.subText,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      widget.result.isCleared
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 16,
+                      color: widget.result.isCleared ? AppColors.accent : AppColors.hint,
+                    ),
+                    Space.x.t12,
+                    Text(formattedDate, style: AppText.b1.cl(AppColors.text)),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${widget.result.completedCount} of ${widget.result.totalCount} done',
+                      style: AppText.b2b.cl(
+                        widget.result.isCleared ? AppColors.accent : AppColors.subText,
+                      ),
+                    ),
+                    Space.x.t04,
+                    Icon(
+                      _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: AppColors.hint,
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-        ],
+            if (_expanded && widget.result.items.isNotEmpty) ...[
+              Space.y.t08,
+              const Divider(height: 1, color: AppColors.border),
+              Space.y.t08,
+              for (final item in widget.result.items) ...[
+                Padding(
+                  padding: Space.v.t04,
+                  child: Row(
+                    children: [
+                      Icon(
+                        item.done ? Icons.check : Icons.circle_outlined,
+                        size: 14,
+                        color: item.done ? AppColors.accent : AppColors.hint,
+                      ),
+                      Space.x.t08,
+                      Expanded(
+                        child: Text(
+                          item.text,
+                          style: TextStyle(
+                            fontFamily: FontFamily.hanken,
+                            fontSize: 13,
+                            color: item.done ? AppColors.hint : AppColors.text,
+                            decoration: item.done ? TextDecoration.lineThrough : null,
+                            decorationColor: AppColors.hint,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
       ),
     );
   }
