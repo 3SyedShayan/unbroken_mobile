@@ -105,6 +105,11 @@ class HabitsCubit extends Cubit<HabitsState> {
     required DaySettings settings,
   }) async {
     if (_currentUid == null) return;
+
+    final today = settings.logicalDay(DateTime.now());
+    final target = settings.logicalDay(asOf);
+    if (target.isAfter(today)) return; // Future days rejected (matches macOS)
+
     final dayKey = settings.logicalDayKey(asOf);
 
     // Provide haptic feedback and click audio feedback
@@ -144,6 +149,11 @@ class HabitsCubit extends Cubit<HabitsState> {
     required DaySettings settings,
   }) async {
     if (_currentUid == null) return;
+
+    final today = settings.logicalDay(DateTime.now());
+    final target = settings.logicalDay(asOf);
+    if (target.isAfter(today)) return; // Future days rejected (matches macOS)
+
     final dayKey = settings.logicalDayKey(asOf);
 
     if (settings.streakSounds) {
@@ -172,6 +182,7 @@ class HabitsCubit extends Cubit<HabitsState> {
     required String name,
     required String emoji,
     required String colorHex,
+    List<String>? habitOrder,
   }) async {
     if (_currentUid == null) return;
     emit(state.copyWith(action: state.action.toLoading()));
@@ -191,6 +202,10 @@ class HabitsCubit extends Cubit<HabitsState> {
 
     try {
       await _repo.upsertHabit(_currentUid!, habit.toJson());
+      if (habitOrder != null) {
+        final updatedOrder = List<String>.from(habitOrder)..add(habit.id);
+        await _repo.reorderHabits(_currentUid!, [], updatedOrder);
+      }
       emit(state.copyWith(action: state.action.toSuccess()));
     } on Fault catch (f) {
       emit(state.copyWith(action: state.action.toFailed(fault: f)));
@@ -242,7 +257,12 @@ class HabitsCubit extends Cubit<HabitsState> {
     emit(state.copyWith(habits: updated));
 
     try {
-      await _repo.reorderHabits(_currentUid!, updated.map((h) => h.toJson()).toList());
+      final habitOrder = updated.map((h) => h.id).toList();
+      await _repo.reorderHabits(
+        _currentUid!,
+        updated.map((h) => h.toJson()).toList(),
+        habitOrder,
+      );
     } catch (_) {}
   }
 

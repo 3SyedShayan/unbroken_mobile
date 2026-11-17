@@ -43,8 +43,7 @@ abstract class StreakCalculator {
     for (final day in sorted) {
       if (previous != null &&
           DateTime(day.year, day.month, day.day) ==
-              DateTime(previous.year, previous.month, previous.day)
-                  .add(const Duration(days: 1))) {
+              DateTime(previous.year, previous.month, previous.day + 1)) {
         run += 1;
       } else {
         run = 1;
@@ -54,7 +53,7 @@ abstract class StreakCalculator {
     }
 
     final currentDay = settings.logicalDay(asOf);
-    final previousDay = currentDay.subtract(const Duration(days: 1));
+    final previousDay = DateTime(currentDay.year, currentDay.month, currentDay.day - 1);
 
     DateTime? anchor;
     if (completedDays.contains(currentDay)) {
@@ -70,7 +69,7 @@ abstract class StreakCalculator {
       var cursor = anchor;
       while (completedDays.contains(cursor)) {
         current += 1;
-        cursor = cursor.subtract(const Duration(days: 1));
+        cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
       }
     }
 

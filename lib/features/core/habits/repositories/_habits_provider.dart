@@ -63,6 +63,7 @@ class _HabitsProvider {
   Future<void> reorderHabits(
     String uid,
     List<Map<String, dynamic>> habits,
+    List<String> habitOrder,
   ) async {
     try {
       final batch = _firestore.batch();
@@ -74,6 +75,11 @@ class _HabitsProvider {
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
+      final userRef = _firestore.collection(Collections.users).doc(uid);
+      batch.update(userRef, {
+        'habitOrder': habitOrder,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
       await batch.commit();
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);

@@ -32,8 +32,12 @@ class HabitsRepo {
   Future<void> upsertHabit(String uid, Map<String, dynamic> habitData) =>
       _provider.upsertHabit(uid, habitData);
 
-  Future<void> reorderHabits(String uid, List<Map<String, dynamic>> habits) =>
-      _provider.reorderHabits(uid, habits);
+  Future<void> reorderHabits(
+    String uid,
+    List<Map<String, dynamic>> habits,
+    List<String> habitOrder,
+  ) =>
+      _provider.reorderHabits(uid, habits, habitOrder);
 
   Future<void> deleteHabit(String uid, String habitId) =>
       _provider.deleteHabit(uid, habitId);

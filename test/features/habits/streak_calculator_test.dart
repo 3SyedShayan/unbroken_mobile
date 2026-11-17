@@ -73,6 +73,19 @@ void main() {
       expect(stats.current, 2);
       expect(stats.best, 5);
     });
+
+    test('Calendar day arithmetic handles month boundaries cleanly without duration drift', () {
+      final stats = StreakCalculator.calculateStreak(
+        completedDays: {
+          DateTime(2026, 10, 31),
+          DateTime(2026, 11, 1),
+        },
+        asOf: DateTime(2026, 11, 1, 12, 0),
+        settings: settings,
+      );
+      expect(stats.current, 2);
+      expect(stats.best, 2);
+    });
   });
 }
 

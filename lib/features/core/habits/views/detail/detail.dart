@@ -8,6 +8,7 @@ import 'package:unbroken_mobile/features/core/habits/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/habits/widgets/contribution_grid.dart';
 import 'package:unbroken_mobile/features/core/habits/widgets/flame_hero.dart';
 import 'package:unbroken_mobile/features/core/habits/widgets/month_heatmap.dart';
+import 'package:unbroken_mobile/features/support/settings/models/day_settings.dart';
 import 'package:unbroken_mobile/features/support/settings/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/router/routes.dart';
 import 'package:unbroken_mobile/shared/widgets/core/screen/screen.dart';

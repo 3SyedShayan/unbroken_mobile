@@ -89,9 +89,16 @@ class _Body extends StatelessWidget {
                                 settings: settings,
                               ),
                               onToggleDay: (d) {
-                                HabitsCubit.c(context).toggleCheckIn(
+                                _confirmAndToggle(
+                                  context: context,
                                   habit: liveHabit,
-                                  asOf: d,
+                                  targetDay: d,
+                                  today: today,
+                                  isDone: habitsState.isCompleted(
+                                    habit: liveHabit,
+                                    asOf: d,
+                                    settings: settings,
+                                  ),
                                   settings: settings,
                                 );
                               },
@@ -119,13 +126,6 @@ class _Body extends StatelessWidget {
                                   asOf: d,
                                   settings: settings,
                                 ),
-                                onToggleDay: (d) {
-                                  HabitsCubit.c(context).toggleCheckIn(
-                                    habit: liveHabit,
-                                    asOf: d,
-                                    settings: settings,
-                                  );
-                                },
                               ),
                             ),
                             Space.y.t24,
@@ -151,9 +151,16 @@ class _Body extends StatelessWidget {
                                   settings: settings,
                                 ),
                                 onToggleDay: (d) {
-                                  HabitsCubit.c(context).toggleCheckIn(
+                                  _confirmAndToggle(
+                                    context: context,
                                     habit: liveHabit,
-                                    asOf: d,
+                                    targetDay: d,
+                                    today: today,
+                                    isDone: habitsState.isCompleted(
+                                      habit: liveHabit,
+                                      asOf: d,
+                                      settings: settings,
+                                    ),
                                     settings: settings,
                                   );
                                 },
@@ -171,6 +178,63 @@ class _Body extends StatelessWidget {
           },
         );
       },
+    );
+  }
+
+  void _confirmAndToggle({
+    required BuildContext context,
+    required Habit habit,
+    required DateTime targetDay,
+    required DateTime today,
+    required bool isDone,
+    required DaySettings settings,
+  }) {
+    final isSameDay = targetDay.year == today.year &&
+        targetDay.month == today.month &&
+        targetDay.day == today.day;
+    if (isSameDay) {
+      HabitsCubit.c(context).toggleCheckIn(
+        habit: habit,
+        asOf: targetDay,
+        settings: settings,
+      );
+      return;
+    }
+
+    final dateFormatted = DateFormat('EEEE, MMM d').format(targetDay);
+    final action = isDone ? 'Remove check-in for' : 'Mark as complete for';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.background,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          isDone ? 'Undo Check-in?' : 'Backfill Check-in?',
+          style: AppText.h3b.cl(AppColors.text),
+        ),
+        content: Text(
+          '$action $dateFormatted?',
+          style: AppText.b1.cl(AppColors.subText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: AppText.b1.cl(AppColors.subText)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              HabitsCubit.c(context).toggleCheckIn(
+                habit: habit,
+                asOf: targetDay,
+                settings: settings,
+              );
+            },
+            child: Text('Confirm', style: AppText.b1b.cl(AppColors.accent)),
+          ),
+        ],
+      ),
     );
   }
 }

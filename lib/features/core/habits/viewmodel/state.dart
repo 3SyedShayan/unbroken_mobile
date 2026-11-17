@@ -65,13 +65,28 @@ class HabitsState extends Equatable {
     );
   }
 
+  List<Habit> activeHabits(List<String> habitOrder) {
+    final active = habits.where((h) => !h.isArchived).toList();
+    if (habitOrder.isNotEmpty) {
+      active.sort((h1, h2) {
+        final i1 = habitOrder.indexOf(h1.id);
+        final i2 = habitOrder.indexOf(h2.id);
+        final pos1 = i1 != -1 ? i1 : (10000 + h1.sortOrder);
+        final pos2 = i2 != -1 ? i2 : (10000 + h2.sortOrder);
+        return pos1.compareTo(pos2);
+      });
+      return active;
+    }
+    active.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return active;
+  }
+
   List<Habit> displayHabits({
     required DateTime asOf,
     required DaySettings settings,
   }) {
-    final active = habits.where((h) => !h.isArchived).toList();
+    final active = activeHabits(settings.habitOrder);
     if (!settings.sinkCompletedHabits) {
-      active.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       return active;
     }
 
@@ -81,19 +96,8 @@ class HabitsState extends Equatable {
         .map((e) => e.habitId)
         .toSet();
 
-    final uncompleted = <Habit>[];
-    final completed = <Habit>[];
-
-    for (final h in active) {
-      if (completedSet.contains(h.id)) {
-        completed.add(h);
-      } else {
-        uncompleted.add(h);
-      }
-    }
-
-    uncompleted.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    completed.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final uncompleted = active.where((h) => !completedSet.contains(h.id)).toList();
+    final completed = active.where((h) => completedSet.contains(h.id)).toList();
 
     return [...uncompleted, ...completed];
   }
