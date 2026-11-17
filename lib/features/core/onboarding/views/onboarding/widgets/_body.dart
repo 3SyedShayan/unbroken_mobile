@@ -54,14 +54,22 @@ class _BodyState extends State<_Body> {
             onPageChanged: (page) => setState(() => _currentPage = page),
             children: [
               _WelcomeSlide(onNext: _nextPage),
-              _PickHabitSlide(onPicked: (starter) {
-                HabitsCubit.c(context).createHabit(
-                  name: starter.name,
-                  emoji: starter.emoji,
-                  colorHex: starter.colorHex,
-                );
-                _nextPage();
-              }),
+              _PickHabitSlide(
+                onPicked: (starter) {
+                  HabitsCubit.c(context).createHabit(
+                    name: starter.name,
+                    emoji: starter.emoji,
+                    colorHex: starter.colorHex,
+                  );
+                  _nextPage();
+                },
+                onMakeOwn: () async {
+                  await Navigator.pushNamed(context, AppRoutes.habitForm);
+                  if (context.mounted) {
+                    _nextPage();
+                  }
+                },
+              ),
               _RulesSlide(onNext: _nextPage),
               _RemindersSlide(
                 onEnable: () {
@@ -152,8 +160,12 @@ const _starters = [
 
 class _PickHabitSlide extends StatelessWidget {
   final ValueChanged<_StarterHabit> onPicked;
+  final VoidCallback onMakeOwn;
 
-  const _PickHabitSlide({required this.onPicked});
+  const _PickHabitSlide({
+    required this.onPicked,
+    required this.onMakeOwn,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +200,17 @@ class _PickHabitSlide extends StatelessWidget {
               ],
             ),
           ),
+          Space.y.t12,
+          Center(
+            child: TextButton(
+              onPressed: onMakeOwn,
+              child: Text(
+                'Or create your own habit...',
+                style: AppText.b1b.cl(AppColors.accent),
+              ),
+            ),
+          ),
+          Space.y.t16,
         ],
       ),
     );
