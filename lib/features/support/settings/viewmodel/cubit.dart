@@ -7,6 +7,7 @@ import 'package:unbroken_mobile/configs/configs.dart';
 import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/features/support/settings/models/day_settings.dart';
 import 'package:unbroken_mobile/features/support/settings/repositories/settings_repo.dart';
+import 'package:unbroken_mobile/services/notifications/local_notification_service.dart';
 
 part 'state.dart';
 
@@ -44,14 +45,18 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _loadLocal() async {
     try {
       final local = await _repo.loadLocalPreferences();
-      emit(state.copyWith(
-        settings: state.settings.copyWith(
-          sinkCompletedHabits: local['sinkCompletedHabits'] as bool? ?? true,
-          rolloverTasks: local['rolloverTasks'] as bool? ?? false,
-          streakSounds: local['streakSounds'] as bool? ?? true,
-          reminders: local['reminders'] as bool? ?? false,
-        ),
-      ));
+      final updated = state.settings.copyWith(
+        sinkCompletedHabits: local['sinkCompletedHabits'] as bool? ?? true,
+        rolloverTasks: local['rolloverTasks'] as bool? ?? false,
+        streakSounds: local['streakSounds'] as bool? ?? true,
+        reminders: local['reminders'] as bool? ?? false,
+        morningReminderEnabled: local['morningReminderEnabled'] as bool? ?? false,
+        morningReminderTime: local['morningReminderTime'] as String? ?? '09:00',
+        nightReminderEnabled: local['nightReminderEnabled'] as bool? ?? false,
+        nightReminderTime: local['nightReminderTime'] as String? ?? '21:00',
+      );
+      emit(state.copyWith(settings: updated));
+      await _syncNotifications(updated);
     } catch (_) {}
   }
 
@@ -94,7 +99,12 @@ class SettingsCubit extends Cubit<SettingsState> {
         'rolloverTasks': newSettings.rolloverTasks,
         'streakSounds': newSettings.streakSounds,
         'reminders': newSettings.reminders,
+        'morningReminderEnabled': newSettings.morningReminderEnabled,
+        'morningReminderTime': newSettings.morningReminderTime,
+        'nightReminderEnabled': newSettings.nightReminderEnabled,
+        'nightReminderTime': newSettings.nightReminderTime,
       });
+      await _syncNotifications(newSettings);
       emit(state.copyWith(update: state.update.toSuccess()));
     } on Fault catch (f) {
       emit(state.copyWith(update: state.update.toFailed(fault: f)));
@@ -103,6 +113,16 @@ class SettingsCubit extends Cubit<SettingsState> {
         update: state.update.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
       ));
     }
+  }
+
+  Future<void> setDayEndHour(int hour, [String? uid]) async {
+    final updated = state.settings.copyWith(dayEndHour: hour.clamp(0, 23));
+    await updateDaySettings(updated, uid);
+  }
+
+  Future<void> setAtRiskWindowHours(int hours, [String? uid]) async {
+    final updated = state.settings.copyWith(atRiskWindowHours: hours.clamp(1, 8));
+    await updateDaySettings(updated, uid);
   }
 
   Future<void> toggleWeekStartMonday(bool val, [String? uid]) async {
@@ -128,6 +148,37 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> toggleReminders(bool val) async {
     final updated = state.settings.copyWith(reminders: val);
     await updateDaySettings(updated);
+  }
+
+  Future<void> toggleMorningReminder(bool val) async {
+    final updated = state.settings.copyWith(morningReminderEnabled: val);
+    await updateDaySettings(updated);
+  }
+
+  Future<void> setMorningReminderTime(String timeStr) async {
+    final updated = state.settings.copyWith(morningReminderTime: timeStr);
+    await updateDaySettings(updated);
+  }
+
+  Future<void> toggleNightReminder(bool val) async {
+    final updated = state.settings.copyWith(nightReminderEnabled: val);
+    await updateDaySettings(updated);
+  }
+
+  Future<void> setNightReminderTime(String timeStr) async {
+    final updated = state.settings.copyWith(nightReminderTime: timeStr);
+    await updateDaySettings(updated);
+  }
+
+  Future<void> _syncNotifications(DaySettings settings) async {
+    try {
+      await LocalNotificationService.ins.rescheduleDailyReminders(
+        morningEnabled: settings.morningReminderEnabled,
+        morningTime: settings.morningReminderTime,
+        nightEnabled: settings.nightReminderEnabled,
+        nightTime: settings.nightReminderTime,
+      );
+    } catch (_) {}
   }
 
   Future<void> setOnboarded(bool val, [String? uid]) async {

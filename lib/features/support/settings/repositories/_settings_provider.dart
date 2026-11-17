@@ -60,6 +60,30 @@ class _SettingsProvider {
       if (prefs.containsKey('reminders')) {
         await sp.setBool('reminders', prefs['reminders'] as bool);
       }
+      if (prefs.containsKey('morningReminderEnabled')) {
+        await sp.setBool(
+          'morningReminderEnabled',
+          prefs['morningReminderEnabled'] as bool,
+        );
+      }
+      if (prefs.containsKey('morningReminderTime')) {
+        await sp.setString(
+          'morningReminderTime',
+          prefs['morningReminderTime'] as String,
+        );
+      }
+      if (prefs.containsKey('nightReminderEnabled')) {
+        await sp.setBool(
+          'nightReminderEnabled',
+          prefs['nightReminderEnabled'] as bool,
+        );
+      }
+      if (prefs.containsKey('nightReminderTime')) {
+        await sp.setString(
+          'nightReminderTime',
+          prefs['nightReminderTime'] as String,
+        );
+      }
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -73,6 +97,10 @@ class _SettingsProvider {
         'rolloverTasks': sp.getBool('rolloverTasks') ?? false,
         'streakSounds': sp.getBool('streakSounds') ?? true,
         'reminders': sp.getBool('reminders') ?? false,
+        'morningReminderEnabled': sp.getBool('morningReminderEnabled') ?? false,
+        'morningReminderTime': sp.getString('morningReminderTime') ?? '09:00',
+        'nightReminderEnabled': sp.getBool('nightReminderEnabled') ?? false,
+        'nightReminderTime': sp.getString('nightReminderTime') ?? '21:00',
       };
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);

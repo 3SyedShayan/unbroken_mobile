@@ -18,6 +18,10 @@ abstract class DaySettings with _$DaySettings {
     @Default(false) bool rolloverTasks,
     @Default(true) bool streakSounds,
     @Default(false) bool reminders,
+    @Default(false) bool morningReminderEnabled,
+    @Default('09:00') String morningReminderTime,
+    @Default(false) bool nightReminderEnabled,
+    @Default('21:00') String nightReminderTime,
     @Default(1) int schemaVersion,
     DateTime? updatedAt,
   }) = _DaySettings;
@@ -32,16 +36,14 @@ abstract class DaySettings with _$DaySettings {
     final boundary =
         DateTime(date.year, date.month, date.day, dayEndHour, 0, 0);
     if (date.isBefore(boundary)) {
-      return startOfCalendarDay.subtract(const Duration(days: 1));
+      return DateTime(date.year, date.month, date.day - 1);
     }
     return startOfCalendarDay;
   }
 
   /// The exact moment the given logical day ends.
   DateTime endOfLogicalDay(DateTime day) {
-    final start = DateTime(day.year, day.month, day.day);
-    final nextDay = start.add(const Duration(days: 1));
-    return DateTime(nextDay.year, nextDay.month, nextDay.day, dayEndHour, 0, 0);
+    return DateTime(day.year, day.month, day.day + 1, dayEndHour, 0, 0);
   }
 
   /// Canonical 'YYYY-MM-DD' day key for the logical day containing [date].
