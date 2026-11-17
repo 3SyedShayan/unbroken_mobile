@@ -15,6 +15,7 @@ import 'package:unbroken_mobile/features/core/habits/widgets/habit_row_card.dart
 import 'package:unbroken_mobile/features/support/settings/models/day_settings.dart';
 import 'package:unbroken_mobile/features/support/settings/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/router/routes.dart';
+import 'package:unbroken_mobile/services/notifications/local_notification_service.dart';
 import 'package:unbroken_mobile/shared/widgets/core/screen/screen.dart';
 
 part 'widgets/_body.dart';

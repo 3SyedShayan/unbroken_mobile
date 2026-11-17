@@ -36,6 +36,112 @@ class _SettingsTab extends StatelessWidget {
                   ),
                   Space.y.t20,
                   Text(
+                    'DAY TIMING',
+                    style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 1.2),
+                  ),
+                  Space.y.t12,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.specBackground,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 1),
+                    ),
+                    child: Column(
+                      children: [
+                        _DayEndHourTile(
+                          dayEndHour: settings.dayEndHour,
+                          onChanged: (hour) {
+                            SettingsCubit.c(context).setDayEndHour(hour, user?.uid);
+                          },
+                        ),
+                        const Divider(height: 1, indent: 56, color: AppColors.divider),
+                        _AtRiskWindowTile(
+                          atRiskHours: settings.atRiskWindowHours,
+                          onChanged: (hours) {
+                            SettingsCubit.c(context).setAtRiskWindowHours(hours, user?.uid);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  Space.y.t08,
+                  Padding(
+                    padding: Space.h.t08,
+                    child: Text(
+                      _dayExplanation(settings.dayEndHour),
+                      style: AppText.l1.cl(AppColors.inkMuted),
+                    ),
+                  ),
+                  Space.y.t20,
+                  Text(
+                    'NOTIFICATIONS',
+                    style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 1.2),
+                  ),
+                  Space.y.t12,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.specBackground,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 1),
+                    ),
+                    child: Column(
+                      children: [
+                        _NotificationTimeTile(
+                          icon: Icons.wb_sunny_rounded,
+                          title: 'Morning task reminder',
+                          subtitle: 'Nudge to plan your 3 daily focus tasks',
+                          enabled: settings.morningReminderEnabled,
+                          timeString: settings.morningReminderTime,
+                          onToggle: (val) async {
+                            if (val) {
+                              final granted = await LocalNotificationService.ins.requestPermissions();
+                              if (!granted && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enable notifications in system settings to receive reminders.'),
+                                  ),
+                                );
+                              }
+                            }
+                            if (context.mounted) {
+                              SettingsCubit.c(context).toggleMorningReminder(val);
+                            }
+                          },
+                          onTimeChanged: (newTime) {
+                            SettingsCubit.c(context).setMorningReminderTime(newTime);
+                          },
+                        ),
+                        const Divider(height: 1, indent: 56, color: AppColors.divider),
+                        _NotificationTimeTile(
+                          icon: Icons.nightlight_round,
+                          title: 'Night goal reminder',
+                          subtitle: 'Review and complete remaining habits before day end',
+                          enabled: settings.nightReminderEnabled,
+                          timeString: settings.nightReminderTime,
+                          onToggle: (val) async {
+                            if (val) {
+                              final granted = await LocalNotificationService.ins.requestPermissions();
+                              if (!granted && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enable notifications in system settings to receive reminders.'),
+                                  ),
+                                );
+                              }
+                            }
+                            if (context.mounted) {
+                              SettingsCubit.c(context).toggleNightReminder(val);
+                            }
+                          },
+                          onTimeChanged: (newTime) {
+                            SettingsCubit.c(context).setNightReminderTime(newTime);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  Space.y.t20,
+                  Text(
                     'PREFERENCES',
                     style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 1.2),
                   ),
@@ -48,16 +154,6 @@ class _SettingsTab extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        _ToggleTile(
-                          icon: Icons.notifications_active_rounded,
-                          title: 'Daily reminders',
-                          subtitle: 'One nudge before the day ends, if a habit\'s still due',
-                          value: settings.reminders,
-                          onChanged: (val) {
-                            SettingsCubit.c(context).toggleReminders(val);
-                          },
-                        ),
-                        const Divider(height: 1, indent: 56, color: AppColors.divider),
                         _ToggleTile(
                           icon: Icons.volume_up_rounded,
                           title: 'Streak sounds & haptics',
@@ -250,6 +346,289 @@ class _ToggleTile extends StatelessWidget {
             activeTrackColor: AppColors.accent,
             onChanged: onChanged,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+String _dayExplanation(int hour) {
+  final h = hour % 12;
+  final display = h == 0 ? 12 : h;
+  final suffix = hour < 12 ? 'AM' : 'PM';
+  final hourLabel = '$display:00 $suffix';
+  return "A check-in after midnight still counts for the day before. With the day ending at $hourLabel, a 12:30 AM note counts toward yesterday — so a late night doesn't break your streak.";
+}
+
+class _DayEndHourTile extends StatelessWidget {
+  final int dayEndHour;
+  final ValueChanged<int> onChanged;
+
+  const _DayEndHourTile({
+    required this.dayEndHour,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    App.init(context);
+
+    return Padding(
+      padding: Space.sym(16, 10),
+      child: Row(
+        children: [
+          const Icon(Icons.nightlight_round, size: 22, color: AppColors.accent),
+          Space.x.t16,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Day ends at', style: AppText.b1b.cl(AppColors.text)),
+                Space.y.t04,
+                Text(
+                  'When one logical day rolls into the next',
+                  style: AppText.b2.cl(AppColors.subText),
+                ),
+              ],
+            ),
+          ),
+          Space.x.t08,
+          DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: (dayEndHour >= 0 && dayEndHour <= 6) ? dayEndHour : 3,
+              dropdownColor: AppColors.specBackground,
+              borderRadius: BorderRadius.circular(12),
+              style: AppText.b1b.cl(AppColors.text),
+              icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.subText, size: 18),
+              items: List.generate(7, (i) {
+                final display = i == 0 ? 12 : i;
+                final label = '$display:00 AM';
+                return DropdownMenuItem<int>(
+                  value: i,
+                  child: Text(label, style: AppText.b1b.cl(AppColors.text)),
+                );
+              }),
+              onChanged: (val) {
+                if (val != null) onChanged(val);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AtRiskWindowTile extends StatelessWidget {
+  final int atRiskHours;
+  final ValueChanged<int> onChanged;
+
+  const _AtRiskWindowTile({
+    required this.atRiskHours,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    App.init(context);
+
+    return Padding(
+      padding: Space.sym(16, 10),
+      child: Row(
+        children: [
+          const Icon(Icons.hourglass_bottom_rounded, size: 22, color: AppColors.accent),
+          Space.x.t16,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('At-risk window', style: AppText.b1b.cl(AppColors.text)),
+                Space.y.t04,
+                Text(
+                  'How early warnings start before day ends',
+                  style: AppText.b2.cl(AppColors.subText),
+                ),
+              ],
+            ),
+          ),
+          Space.x.t08,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: Icon(
+                  Icons.remove_circle_outline,
+                  size: 20,
+                  color: atRiskHours > 1 ? AppColors.accent : AppColors.hint,
+                ),
+                onPressed: atRiskHours > 1 ? () => onChanged(atRiskHours - 1) : null,
+              ),
+              Space.x.t04,
+              Text(
+                '$atRiskHours ${atRiskHours == 1 ? "hour" : "hours"}',
+                style: AppText.b1b.cl(AppColors.text),
+              ),
+              Space.x.t04,
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: Icon(
+                  Icons.add_circle_outline,
+                  size: 20,
+                  color: atRiskHours < 8 ? AppColors.accent : AppColors.hint,
+                ),
+                onPressed: atRiskHours < 8 ? () => onChanged(atRiskHours + 1) : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatTimeString(String timeStr) {
+  final parts = timeStr.split(':');
+  if (parts.length != 2) return timeStr;
+  final hour = int.tryParse(parts[0]) ?? 0;
+  final minute = int.tryParse(parts[1]) ?? 0;
+  final h = hour % 12;
+  final displayHour = h == 0 ? 12 : h;
+  final displayMinute = minute.toString().padLeft(2, '0');
+  final suffix = hour < 12 ? 'AM' : 'PM';
+  return '$displayHour:$displayMinute $suffix';
+}
+
+TimeOfDay _parseTimeOfDay(String timeStr) {
+  final parts = timeStr.split(':');
+  if (parts.length != 2) return const TimeOfDay(hour: 9, minute: 0);
+  final hour = int.tryParse(parts[0]) ?? 9;
+  final minute = int.tryParse(parts[1]) ?? 0;
+  return TimeOfDay(hour: hour, minute: minute);
+}
+
+class _NotificationTimeTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool enabled;
+  final String timeString;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<String> onTimeChanged;
+
+  const _NotificationTimeTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.enabled,
+    required this.timeString,
+    required this.onToggle,
+    required this.onTimeChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    App.init(context);
+
+    return Padding(
+      padding: Space.sym(16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 22, color: AppColors.accent),
+              Space.x.t16,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppText.b1b.cl(AppColors.text)),
+                    Space.y.t04,
+                    Text(subtitle, style: AppText.b2.cl(AppColors.subText)),
+                  ],
+                ),
+              ),
+              Space.x.t12,
+              Switch.adaptive(
+                value: enabled,
+                activeTrackColor: AppColors.accent,
+                onChanged: onToggle,
+              ),
+            ],
+          ),
+          if (enabled) ...[
+            Space.y.t08,
+            Padding(
+              padding: const EdgeInsets.only(left: 38),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () async {
+                  final initial = _parseTimeOfDay(timeString);
+                  final selected = await showTimePicker(
+                    context: context,
+                    initialTime: initial,
+                    builder: (pickerContext, child) {
+                      return Theme(
+                        data: Theme.of(pickerContext).copyWith(
+                          colorScheme: const ColorScheme.light(
+                            primary: AppColors.accent,
+                            onPrimary: Colors.white,
+                            surface: AppColors.specBackground,
+                            onSurface: AppColors.text,
+                          ),
+                          timePickerTheme: TimePickerThemeData(
+                            backgroundColor: AppColors.specBackground,
+                            hourMinuteColor: AppColors.emptyCell,
+                            hourMinuteTextColor: AppColors.text,
+                            dayPeriodColor: AppColors.emptyCell,
+                            dayPeriodTextColor: AppColors.text,
+                            dialBackgroundColor: AppColors.emptyCell,
+                            dialHandColor: AppColors.accent,
+                            dialTextColor: AppColors.text,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                        child: child ?? const SizedBox.shrink(),
+                      );
+                    },
+                  );
+                  if (selected != null) {
+                    final h = selected.hour.toString().padLeft(2, '0');
+                    final m = selected.minute.toString().padLeft(2, '0');
+                    onTimeChanged('$h:$m');
+                  }
+                },
+                child: Container(
+                  padding: Space.sym(12, 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.emptyCell,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.schedule_rounded, size: 16, color: AppColors.accent),
+                      Space.x.t08,
+                      Text(
+                        _formatTimeString(timeString),
+                        style: AppText.b2b.cl(AppColors.text),
+                      ),
+                      Space.x.t04,
+                      const Icon(Icons.arrow_drop_down, size: 18, color: AppColors.subText),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
