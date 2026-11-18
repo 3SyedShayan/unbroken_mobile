@@ -24,6 +24,9 @@ class SettingsRepo {
   Stream<Map<String, dynamic>?> observeSettings(String uid) =>
       _provider.observeSettings(uid);
 
+  Future<Map<String, dynamic>?> getSettings(String uid) =>
+      _provider.getSettings(uid);
+
   Future<void> updateSettings(String uid, Map<String, dynamic> settingsData) =>
       _provider.updateSettings(uid, settingsData);
 
@@ -32,5 +35,8 @@ class SettingsRepo {
 
   Future<Map<String, dynamic>> loadLocalPreferences() =>
       _provider.loadLocalPreferences();
+
+  Future<void> clearLocalPreferences() =>
+      _provider.clearLocalPreferences();
 }
 

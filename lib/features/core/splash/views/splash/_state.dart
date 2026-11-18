@@ -9,25 +9,38 @@ class _ScreenState extends ChangeNotifier {
   }
 
   Future<void> _init(BuildContext context) async {
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!context.mounted) return;
+    final splashDelay = Future.delayed(const Duration(milliseconds: 1200));
 
     final authCubit = AuthCubit.c(context);
+    final habitsCubit = HabitsCubit.c(context);
+    final focusCubit = FocusCubit.c(context);
+    final settingsCubit = SettingsCubit.c(context);
     final user = authCubit.state.user;
 
     if (user != null) {
-      // Start observing user streams
-      HabitsCubit.c(context).startObserving(user.uid);
-      FocusCubit.c(context).startObserving(user.uid);
-      SettingsCubit.c(context).startObserving(user.uid);
+      // Start observing user streams concurrently with splash animation
+      habitsCubit.startObserving(user.uid);
+      focusCubit.startObserving(user.uid);
+      final settingsFuture = settingsCubit.startObserving(user.uid);
 
-      final settings = SettingsCubit.c(context).state.settings;
+      await Future.wait([
+        splashDelay,
+        settingsFuture.timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => settingsCubit.state.settings,
+        ),
+      ]);
+      if (!context.mounted) return;
+
+      final settings = settingsCubit.state.settings;
       if (!settings.hasOnboarded) {
         AppRoutes.onboarding.pushReplace(context);
       } else {
         AppRoutes.home.pushReplace(context);
       }
     } else {
+      await splashDelay;
+      if (!context.mounted) return;
       AppRoutes.login.pushReplace(context);
     }
   }

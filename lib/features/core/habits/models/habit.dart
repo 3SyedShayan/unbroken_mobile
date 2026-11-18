@@ -25,7 +25,44 @@ abstract class Habit with _$Habit {
     DateTime? updatedAt,
   }) = _Habit;
 
-  factory Habit.fromJson(Map<String, dynamic> json) => _$HabitFromJson(json);
+  factory Habit.fromJson(Map<String, dynamic> json) {
+    final rawCreatedAt = json['createdAt'];
+    DateTime createdAt;
+    if (rawCreatedAt is DateTime) {
+      createdAt = rawCreatedAt;
+    } else if (rawCreatedAt is String) {
+      createdAt = DateTime.tryParse(rawCreatedAt) ?? DateTime.now();
+    } else if (rawCreatedAt is num) {
+      createdAt = DateTime.fromMillisecondsSinceEpoch(rawCreatedAt.toInt());
+    } else if (rawCreatedAt != null &&
+        (rawCreatedAt.runtimeType.toString() == 'Timestamp' ||
+            rawCreatedAt.runtimeType.toString() == '_Timestamp')) {
+      createdAt = (rawCreatedAt as dynamic).toDate() as DateTime;
+    } else {
+      createdAt = DateTime.now();
+    }
+
+    final rawUpdatedAt = json['updatedAt'];
+    DateTime? updatedAt;
+    if (rawUpdatedAt is DateTime) {
+      updatedAt = rawUpdatedAt;
+    } else if (rawUpdatedAt is String) {
+      updatedAt = DateTime.tryParse(rawUpdatedAt);
+    } else if (rawUpdatedAt is num) {
+      updatedAt = DateTime.fromMillisecondsSinceEpoch(rawUpdatedAt.toInt());
+    } else if (rawUpdatedAt != null &&
+        (rawUpdatedAt.runtimeType.toString() == 'Timestamp' ||
+            rawUpdatedAt.runtimeType.toString() == '_Timestamp')) {
+      updatedAt = (rawUpdatedAt as dynamic).toDate() as DateTime;
+    }
+
+    final sanitized = Map<String, dynamic>.from(json);
+    sanitized['createdAt'] = createdAt.toIso8601String();
+    if (updatedAt != null) {
+      sanitized['updatedAt'] = updatedAt.toIso8601String();
+    }
+    return _$HabitFromJson(sanitized);
+  }
 
   Color get color => HabitPalette.parse(colorHex);
 

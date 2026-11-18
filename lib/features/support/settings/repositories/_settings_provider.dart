@@ -13,6 +13,16 @@ class _SettingsProvider {
     });
   }
 
+  Future<Map<String, dynamic>?> getSettings(String uid) async {
+    try {
+      final snapshot = await _userDoc(uid).get();
+      if (!snapshot.exists || snapshot.data() == null) return null;
+      return _cleanDoc(snapshot.data()!);
+    } catch (e, s) {
+      throw Fault.fromObjectAndStackTrace(e, s);
+    }
+  }
+
   Future<void> updateSettings(String uid, Map<String, dynamic> raw) async {
     try {
       // In firestore.rules, users doc permits ONLY these 8 fields:
@@ -45,6 +55,12 @@ class _SettingsProvider {
   Future<void> updateLocalPreferences(Map<String, dynamic> prefs) async {
     try {
       final sp = await SharedPreferences.getInstance();
+      if (prefs.containsKey('hasOnboarded')) {
+        await sp.setBool('hasOnboarded', prefs['hasOnboarded'] as bool);
+      }
+      if (prefs.containsKey('didCheckInOnce')) {
+        await sp.setBool('didCheckInOnce', prefs['didCheckInOnce'] as bool);
+      }
       if (prefs.containsKey('sinkCompletedHabits')) {
         await sp.setBool(
           'sinkCompletedHabits',
@@ -93,6 +109,8 @@ class _SettingsProvider {
     try {
       final sp = await SharedPreferences.getInstance();
       return {
+        'hasOnboarded': sp.getBool('hasOnboarded') ?? false,
+        'didCheckInOnce': sp.getBool('didCheckInOnce') ?? false,
         'sinkCompletedHabits': sp.getBool('sinkCompletedHabits') ?? true,
         'rolloverTasks': sp.getBool('rolloverTasks') ?? false,
         'streakSounds': sp.getBool('streakSounds') ?? true,
@@ -102,6 +120,16 @@ class _SettingsProvider {
         'nightReminderEnabled': sp.getBool('nightReminderEnabled') ?? false,
         'nightReminderTime': sp.getString('nightReminderTime') ?? '21:00',
       };
+    } catch (e, s) {
+      throw Fault.fromObjectAndStackTrace(e, s);
+    }
+  }
+
+  Future<void> clearLocalPreferences() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      await sp.remove('hasOnboarded');
+      await sp.remove('didCheckInOnce');
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }

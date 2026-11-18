@@ -12,6 +12,7 @@ import 'package:unbroken_mobile/features/core/habits/models/habit.dart';
 import 'package:unbroken_mobile/features/core/habits/models/streak_stats.dart';
 import 'package:unbroken_mobile/features/core/habits/repositories/habits_repo.dart';
 import 'package:unbroken_mobile/features/support/settings/models/day_settings.dart';
+import 'package:unbroken_mobile/services/logging/app_log.dart';
 
 part 'state.dart';
 
@@ -53,8 +54,17 @@ class HabitsCubit extends Cubit<HabitsState> {
       _entriesSub = _repo
           .observeEntries(_currentUid!, windowStartKey: windowKey)
           .listen((rawList) {
-        final entries = rawList.map((m) => Entry.fromJson(m)).toList();
+        final entries = <Entry>[];
+        for (final m in rawList) {
+          try {
+            entries.add(Entry.fromJson(m));
+          } catch (e) {
+            'Failed to parse entry: $m, error: $e'.appLog(level: AppLogLevel.warning);
+          }
+        }
         emit(state.copyWith(entries: entries));
+      }, onError: (Object e, StackTrace s) {
+        'Error in observeEntries: $e'.appLog(level: AppLogLevel.error);
       });
     }
   }
@@ -66,19 +76,37 @@ class HabitsCubit extends Cubit<HabitsState> {
     _entriesSub?.cancel();
 
     _habitsSub = _repo.observeHabits(uid).listen((rawList) {
-      final habits = rawList.map((m) => Habit.fromJson(m)).toList();
+      final habits = <Habit>[];
+      for (final m in rawList) {
+        try {
+          habits.add(Habit.fromJson(m));
+        } catch (e) {
+          'Failed to parse habit: $m, error: $e'.appLog(level: AppLogLevel.warning);
+        }
+      }
       emit(state.copyWith(
         habits: habits,
         fetch: state.fetch.toSuccess(data: habits),
       ));
+    }, onError: (Object e, StackTrace s) {
+      'Error in observeHabits: $e'.appLog(level: AppLogLevel.error);
     });
 
     final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
     final windowKey = DaySettings.dayKey(thirtyDaysAgo);
 
     _entriesSub = _repo.observeEntries(uid, windowStartKey: windowKey).listen((rawList) {
-      final entries = rawList.map((m) => Entry.fromJson(m)).toList();
+      final entries = <Entry>[];
+      for (final m in rawList) {
+        try {
+          entries.add(Entry.fromJson(m));
+        } catch (e) {
+          'Failed to parse entry: $m, error: $e'.appLog(level: AppLogLevel.warning);
+        }
+      }
       emit(state.copyWith(entries: entries));
+    }, onError: (Object e, StackTrace s) {
+      'Error in observeEntries: $e'.appLog(level: AppLogLevel.error);
     });
   }
 

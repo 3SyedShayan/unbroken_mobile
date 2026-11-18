@@ -116,13 +116,27 @@ class _HabitsProvider {
       final entryId = '${cleanHabitId}_$logicalDayKey';
       final entryRef = _userEntries(uid).doc(entryId);
 
-      final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+      final String platform;
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.iOS:
+          platform = 'ios';
+          break;
+        case TargetPlatform.macOS:
+          platform = 'macos';
+          break;
+        case TargetPlatform.android:
+          platform = 'android';
+          break;
+        default:
+          platform = 'ios';
+      }
+
       final payload = <String, dynamic>{
         'id': entryId,
         'habitId': cleanHabitId,
         'logicalDayKey': logicalDayKey,
         'source': 'mobile',
-        'platform': isIos ? 'ios' : 'android',
+        'platform': platform,
         'timestamp': FieldValue.serverTimestamp(),
       };
 
@@ -153,6 +167,12 @@ class _HabitsProvider {
         copy[key] = value.toDate().toIso8601String();
       }
     });
+    if (copy.containsKey('timestamp') && copy['timestamp'] == null) {
+      copy['timestamp'] = DateTime.now().toIso8601String();
+    }
+    if (copy.containsKey('createdAt') && copy['createdAt'] == null) {
+      copy['createdAt'] = DateTime.now().toIso8601String();
+    }
     return copy;
   }
 }

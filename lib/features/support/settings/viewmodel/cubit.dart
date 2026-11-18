@@ -18,6 +18,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   final SettingsRepo _repo;
   StreamSubscription<Map<String, dynamic>?>? _sub;
   String? _currentUid;
+  Future<DaySettings>? _loadLocalFuture;
 
   SettingsCubit({SettingsRepo? repo})
       : _repo = repo ?? SettingsRepo.ins,
@@ -27,25 +28,38 @@ class SettingsCubit extends Cubit<SettingsState> {
           update: BlocState<void>(),
         )) {
     SignOutCleanupRegistry.ins.register(_clearOnSignOut);
-    _loadLocal();
+    loadLocal();
   }
 
-  void _clearOnSignOut() {
+  Future<void> _clearOnSignOut() async {
     _sub?.cancel();
     _sub = null;
     _currentUid = null;
+    _loadLocalFuture = null;
     emit(SettingsState(
       settings: const DaySettings(),
       fetch: BlocState<DaySettings>(),
       update: BlocState<void>(),
     ));
-    _loadLocal();
+    try {
+      await _repo.clearLocalPreferences();
+    } catch (_) {}
+    loadLocal();
   }
 
-  Future<void> _loadLocal() async {
+  Future<DaySettings> loadLocal() {
+    return _loadLocalFuture ??= _loadLocal();
+  }
+
+  Future<DaySettings> _loadLocal() async {
     try {
       final local = await _repo.loadLocalPreferences();
+      final localHasOnboarded = local['hasOnboarded'] as bool? ?? false;
+      final localDidCheckInOnce = local['didCheckInOnce'] as bool? ?? false;
+
       final updated = state.settings.copyWith(
+        hasOnboarded: localHasOnboarded || state.settings.hasOnboarded,
+        didCheckInOnce: localDidCheckInOnce || state.settings.didCheckInOnce,
         sinkCompletedHabits: local['sinkCompletedHabits'] as bool? ?? true,
         rolloverTasks: local['rolloverTasks'] as bool? ?? false,
         streakSounds: local['streakSounds'] as bool? ?? true,
@@ -57,11 +71,15 @@ class SettingsCubit extends Cubit<SettingsState> {
       );
       emit(state.copyWith(settings: updated));
       await _syncNotifications(updated);
-    } catch (_) {}
+      return updated;
+    } catch (_) {
+      return state.settings;
+    }
   }
 
-  void startObserving(String uid) {
-    if (_currentUid == uid && _sub != null) return;
+  Future<DaySettings> startObserving(String uid) async {
+    await loadLocal();
+    if (_currentUid == uid && _sub != null) return state.settings;
     _currentUid = uid;
     _sub?.cancel();
 
@@ -79,11 +97,45 @@ class SettingsCubit extends Cubit<SettingsState> {
           ),
           fetch: state.fetch.toSuccess(data: parsed),
         ));
+        _repo.updateLocalPreferences({
+          'hasOnboarded': parsed.hasOnboarded,
+          'didCheckInOnce': parsed.didCheckInOnce,
+        });
       }
     });
+
+    try {
+      final raw = await _repo.getSettings(uid).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => null,
+      );
+      if (raw != null) {
+        final parsed = DaySettings.fromJson(raw);
+        final updated = state.settings.copyWith(
+          dayEndHour: parsed.dayEndHour,
+          atRiskWindowHours: parsed.atRiskWindowHours,
+          habitOrder: parsed.habitOrder,
+          weekStartMonday: parsed.weekStartMonday,
+          hasOnboarded: parsed.hasOnboarded,
+          didCheckInOnce: parsed.didCheckInOnce,
+        );
+        emit(state.copyWith(
+          settings: updated,
+          fetch: state.fetch.toSuccess(data: parsed),
+        ));
+        await _repo.updateLocalPreferences({
+          'hasOnboarded': parsed.hasOnboarded,
+          'didCheckInOnce': parsed.didCheckInOnce,
+        });
+        return updated;
+      }
+    } catch (_) {}
+
+    return state.settings;
   }
 
   Future<void> updateDaySettings(DaySettings newSettings, [String? uid]) async {
+    await loadLocal();
     emit(state.copyWith(
       settings: newSettings,
       update: state.update.toLoading(),
@@ -95,6 +147,8 @@ class SettingsCubit extends Cubit<SettingsState> {
         await _repo.updateSettings(targetUid, newSettings.toJson());
       }
       await _repo.updateLocalPreferences({
+        'hasOnboarded': newSettings.hasOnboarded,
+        'didCheckInOnce': newSettings.didCheckInOnce,
         'sinkCompletedHabits': newSettings.sinkCompletedHabits,
         'rolloverTasks': newSettings.rolloverTasks,
         'streakSounds': newSettings.streakSounds,
@@ -179,6 +233,21 @@ class SettingsCubit extends Cubit<SettingsState> {
         nightTime: settings.nightReminderTime,
       );
     } catch (_) {}
+  }
+
+  Future<void> completeOnboarding({
+    bool enableReminders = false,
+    String? uid,
+  }) async {
+    final updated = state.settings.copyWith(
+      hasOnboarded: true,
+      reminders: enableReminders ? true : state.settings.reminders,
+      morningReminderEnabled:
+          enableReminders ? true : state.settings.morningReminderEnabled,
+      nightReminderEnabled:
+          enableReminders ? true : state.settings.nightReminderEnabled,
+    );
+    await updateDaySettings(updated, uid);
   }
 
   Future<void> setOnboarded(bool val, [String? uid]) async {

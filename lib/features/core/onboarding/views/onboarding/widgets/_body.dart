@@ -28,9 +28,13 @@ class _BodyState extends State<_Body> {
     }
   }
 
-  void _finishOnboarding() {
+  Future<void> _finishOnboarding({bool enableReminders = false}) async {
     final uid = AuthCubit.c(context).state.user?.uid;
-    SettingsCubit.c(context).setOnboarded(true, uid);
+    await SettingsCubit.c(context).completeOnboarding(
+      enableReminders: enableReminders,
+      uid: uid,
+    );
+    if (!mounted) return;
     AppRoutes.home.pushReplace(context);
   }
 
@@ -72,11 +76,8 @@ class _BodyState extends State<_Body> {
               ),
               _RulesSlide(onNext: _nextPage),
               _RemindersSlide(
-                onEnable: () {
-                  SettingsCubit.c(context).toggleReminders(true);
-                  _finishOnboarding();
-                },
-                onSkip: _finishOnboarding,
+                onEnable: () => _finishOnboarding(enableReminders: true),
+                onSkip: () => _finishOnboarding(enableReminders: false),
               ),
             ],
           ),

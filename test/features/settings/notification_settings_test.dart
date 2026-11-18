@@ -27,7 +27,15 @@ class _FakeSettingsRepo extends SettingsRepo {
   Stream<Map<String, dynamic>?> observeSettings(String uid) => const Stream.empty();
 
   @override
+  Future<Map<String, dynamic>?> getSettings(String uid) async => null;
+
+  @override
   Future<void> updateSettings(String uid, Map<String, dynamic> settingsData) async {}
+
+  @override
+  Future<void> clearLocalPreferences() async {
+    localStore.clear();
+  }
 }
 
 void main() {

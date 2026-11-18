@@ -21,13 +21,14 @@ class _Body extends StatelessWidget {
             listenWhen: (prev, curr) =>
                 prev.login.action != curr.login.action ||
                 prev.user != curr.user,
-            listener: (context, state) {
+            listener: (context, state) async {
               if (state.login.isSuccess && state.user != null) {
                 final uid = state.user!.uid;
                 HabitsCubit.c(context).startObserving(uid);
                 FocusCubit.c(context).startObserving(uid);
-                SettingsCubit.c(context).startObserving(uid);
+                await SettingsCubit.c(context).startObserving(uid);
 
+                if (!context.mounted) return;
                 final settings = SettingsCubit.c(context).state.settings;
                 if (!settings.hasOnboarded) {
                   AppRoutes.onboarding.pushReplace(context);

@@ -16,7 +16,27 @@ abstract class Entry with _$Entry {
     required DateTime timestamp,
   }) = _Entry;
 
-  factory Entry.fromJson(Map<String, dynamic> json) => _$EntryFromJson(json);
+  factory Entry.fromJson(Map<String, dynamic> json) {
+    final rawTimestamp = json['timestamp'];
+    DateTime timestamp;
+    if (rawTimestamp is DateTime) {
+      timestamp = rawTimestamp;
+    } else if (rawTimestamp is String) {
+      timestamp = DateTime.tryParse(rawTimestamp) ?? DateTime.now();
+    } else if (rawTimestamp is num) {
+      timestamp = DateTime.fromMillisecondsSinceEpoch(rawTimestamp.toInt());
+    } else if (rawTimestamp != null &&
+        (rawTimestamp.runtimeType.toString() == 'Timestamp' ||
+            rawTimestamp.runtimeType.toString() == '_Timestamp')) {
+      timestamp = (rawTimestamp as dynamic).toDate() as DateTime;
+    } else {
+      timestamp = DateTime.now();
+    }
+
+    final sanitized = Map<String, dynamic>.from(json);
+    sanitized['timestamp'] = timestamp.toIso8601String();
+    return _$EntryFromJson(sanitized);
+  }
 
   static String generateId(String habitId, String logicalDayKey) =>
       '${habitId}_$logicalDayKey';

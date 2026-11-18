@@ -13,6 +13,7 @@ import 'package:unbroken_mobile/features/core/focus/models/focus_item.dart';
 import 'package:unbroken_mobile/features/core/focus/repositories/focus_repo.dart';
 import 'package:unbroken_mobile/features/core/habits/models/streak_stats.dart';
 import 'package:unbroken_mobile/features/support/settings/models/day_settings.dart';
+import 'package:unbroken_mobile/services/logging/app_log.dart';
 
 part 'state.dart';
 
@@ -51,11 +52,20 @@ class FocusCubit extends Cubit<FocusState> {
       _sub = _repo
           .observeFocus(_currentUid!, windowStartKey: windowKey)
           .listen((rawList) {
-        final list = rawList.map((m) => DailyFocus.fromJson(m)).toList();
+        final list = <DailyFocus>[];
+        for (final m in rawList) {
+          try {
+            list.add(DailyFocus.fromJson(m));
+          } catch (e) {
+            'Failed to parse daily focus: $m, error: $e'.appLog(level: AppLogLevel.warning);
+          }
+        }
         emit(state.copyWith(
           focusList: list,
           fetch: state.fetch.toSuccess(data: list),
         ));
+      }, onError: (Object e, StackTrace s) {
+        'Error in observeFocus: $e'.appLog(level: AppLogLevel.error);
       });
     }
   }
@@ -77,11 +87,20 @@ class FocusCubit extends Cubit<FocusState> {
     final windowKey = DaySettings.dayKey(thirtyDaysAgo);
 
     _sub = _repo.observeFocus(uid, windowStartKey: windowKey).listen((rawList) {
-      final list = rawList.map((m) => DailyFocus.fromJson(m)).toList();
+      final list = <DailyFocus>[];
+      for (final m in rawList) {
+        try {
+          list.add(DailyFocus.fromJson(m));
+        } catch (e) {
+          'Failed to parse daily focus: $m, error: $e'.appLog(level: AppLogLevel.warning);
+        }
+      }
       emit(state.copyWith(
         focusList: list,
         fetch: state.fetch.toSuccess(data: list),
       ));
+    }, onError: (Object e, StackTrace s) {
+      'Error in observeFocus: $e'.appLog(level: AppLogLevel.error);
     });
   }
 
