@@ -23,6 +23,7 @@ class FocusListCard extends StatefulWidget {
 
 class _FocusListCardState extends State<FocusListCard> {
   final _addController = TextEditingController();
+  bool _isExpanded = false;
 
   @override
   void initState() {
@@ -67,6 +68,10 @@ class _FocusListCardState extends State<FocusListCard> {
                     : 'all done for today 🔥')
                 : '$done of $filled done today');
 
+        final coreItems = items.take(3).toList();
+        final overflowItems = items.length > 3 ? items.sublist(3) : <FocusItem>[];
+        final isAtMax = items.length >= FocusCubit.maxTasks;
+
         return Container(
           padding: Space.a.t16,
           decoration: BoxDecoration(
@@ -84,10 +89,11 @@ class _FocusListCardState extends State<FocusListCard> {
                 statusLine: statusLine,
               ),
               Space.y.t12,
-              for (var i = 0; i < items.length; i++) ...[
+              for (var i = 0; i < coreItems.length; i++) ...[
                 _FocusRow(
+                  key: ValueKey(coreItems[i].id),
                   index: i,
-                  item: items[i],
+                  item: coreItems[i],
                   placeholder: _placeholderForIndex(i),
                   onToggle: () {
                     FocusCubit.c(context).toggleSlot(
@@ -112,19 +118,90 @@ class _FocusListCardState extends State<FocusListCard> {
                     );
                   },
                 ),
-                if (i < items.length - 1) Space.y.t08,
+                if (i < coreItems.length - 1 || overflowItems.isNotEmpty) Space.y.t08,
+              ],
+              if (overflowItems.isNotEmpty) ...[
+                _OverflowToggle(
+                  isExpanded: _isExpanded,
+                  overflowCount: overflowItems.length,
+                  completedCount: overflowItems
+                      .where((it) => it.done && it.text.trim().isNotEmpty)
+                      .length,
+                  onTap: () {
+                    setState(() {
+                      _isExpanded = !_isExpanded;
+                    });
+                  },
+                ),
+                AnimatedCrossFade(
+                  firstChild: const SizedBox(width: double.infinity, height: 0),
+                  secondChild: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Space.y.t08,
+                      for (var i = 0; i < overflowItems.length; i++) ...[
+                        _FocusRow(
+                          key: ValueKey(overflowItems[i].id),
+                          index: i + 3,
+                          item: overflowItems[i],
+                          placeholder: _placeholderForIndex(i + 3),
+                          onToggle: () {
+                            FocusCubit.c(context).toggleSlot(
+                              index: i + 3,
+                              asOf: widget.now,
+                              settings: widget.settings,
+                            );
+                          },
+                          onTextChanged: (text) {
+                            FocusCubit.c(context).updateSlotText(
+                              index: i + 3,
+                              text: text,
+                              asOf: widget.now,
+                              settings: widget.settings,
+                            );
+                          },
+                          onDelete: () {
+                            FocusCubit.c(context).deleteSlot(
+                              index: i + 3,
+                              asOf: widget.now,
+                              settings: widget.settings,
+                            );
+                          },
+                        ),
+                        if (i < overflowItems.length - 1) Space.y.t08,
+                      ],
+                    ],
+                  ),
+                  crossFadeState: _isExpanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: AppProps.medium,
+                  sizeCurve: Curves.easeInOutCubic,
+                ),
               ],
               Space.y.t08,
-              _AddTaskRow(
-                controller: _addController,
-                onSubmitted: (text) {
-                  FocusCubit.c(context).addTask(
-                    text: text,
-                    asOf: widget.now,
-                    settings: widget.settings,
-                  );
-                  _addController.clear();
-                },
+              AnimatedSwitcher(
+                duration: AppProps.medium,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: isAtMax
+                    ? const _MaxTasksReachedRow(key: ValueKey('max_reached'))
+                    : _AddTaskRow(
+                        key: const ValueKey('add_task_row'),
+                        controller: _addController,
+                        onSubmitted: (text) {
+                          FocusCubit.c(context).addTask(
+                            text: text,
+                            asOf: widget.now,
+                            settings: widget.settings,
+                          );
+                          _addController.clear();
+                          setState(() {
+                            _isExpanded = true;
+                          });
+                        },
+                      ),
               ),
             ],
           ),
@@ -192,6 +269,158 @@ class _FocusHeader extends StatelessWidget {
   }
 }
 
+class _OverflowToggle extends StatefulWidget {
+  final bool isExpanded;
+  final int overflowCount;
+  final int completedCount;
+  final VoidCallback onTap;
+
+  const _OverflowToggle({
+    required this.isExpanded,
+    required this.overflowCount,
+    required this.completedCount,
+    required this.onTap,
+  });
+
+  @override
+  State<_OverflowToggle> createState() => _OverflowToggleState();
+}
+
+class _OverflowToggleState extends State<_OverflowToggle> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    App.init(context);
+    final count = widget.overflowCount;
+    final done = widget.completedCount;
+    final label = widget.isExpanded
+        ? 'Hide additional tasks'
+        : 'Show $count more ${count == 1 ? 'task' : 'tasks'}';
+    final progressLabel = done > 0 ? ' • $done/$count done' : '';
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.98 : 1.0,
+        duration: AppProps.quick,
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: AppProps.fast,
+          padding: Space.sym(12, 8),
+          decoration: BoxDecoration(
+            color: widget.isExpanded
+                ? AppColors.subBackground
+                : AppColors.specBackground,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: widget.isExpanded
+                  ? AppColors.border
+                  : AppColors.dashedBorder,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    widget.isExpanded
+                        ? Icons.unfold_less_rounded
+                        : Icons.unfold_more_rounded,
+                    size: 16,
+                    color: AppColors.accent,
+                  ),
+                  Space.x.t08,
+                  Text.rich(
+                    TextSpan(
+                      text: label,
+                      style: TextStyle(
+                        fontFamily: FontFamily.hanken,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text,
+                      ),
+                      children: [
+                        if (progressLabel.isNotEmpty)
+                          TextSpan(
+                            text: progressLabel,
+                            style: TextStyle(
+                              fontFamily: FontFamily.hanken,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: done == count
+                                  ? AppColors.accent
+                                  : AppColors.hint,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              AnimatedRotation(
+                turns: widget.isExpanded ? 0.5 : 0.0,
+                duration: AppProps.medium,
+                curve: Curves.easeInOutCubic,
+                child: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: AppColors.hint,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MaxTasksReachedRow extends StatelessWidget {
+  const _MaxTasksReachedRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    App.init(context);
+    return Container(
+      width: double.infinity,
+      padding: Space.sym(12, 8),
+      decoration: BoxDecoration(
+        color: AppColors.subBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.task_alt_rounded,
+            size: 15,
+            color: AppColors.accent,
+          ),
+          Space.x.t08,
+          Text(
+            'Maximum 10 tasks reached for today',
+            style: TextStyle(
+              fontFamily: FontFamily.hanken,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.subText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FocusRow extends StatefulWidget {
   final int index;
   final FocusItem item;
@@ -201,6 +430,7 @@ class _FocusRow extends StatefulWidget {
   final VoidCallback onDelete;
 
   const _FocusRow({
+    super.key,
     required this.index,
     required this.item,
     required this.placeholder,
@@ -215,6 +445,7 @@ class _FocusRow extends StatefulWidget {
 
 class _FocusRowState extends State<_FocusRow> {
   late TextEditingController _controller;
+  bool _isCheckboxPressed = false;
 
   @override
   void initState() {
@@ -246,22 +477,41 @@ class _FocusRowState extends State<_FocusRow> {
     return Row(
       children: [
         GestureDetector(
+          onTapDown: hasText ? (_) => setState(() => _isCheckboxPressed = true) : null,
+          onTapUp: hasText ? (_) => setState(() => _isCheckboxPressed = false) : null,
+          onTapCancel: hasText ? () => setState(() => _isCheckboxPressed = false) : null,
           onTap: hasText ? widget.onToggle : null,
           behavior: HitTestBehavior.opaque,
-          child: Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              color: checked ? AppColors.accent : AppColors.specBackground,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: checked ? Colors.transparent : AppColors.dashedBorder,
-                width: 1.5,
+          child: AnimatedScale(
+            scale: _isCheckboxPressed ? 0.88 : 1.0,
+            duration: AppProps.quick,
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: AppProps.fast,
+              curve: Curves.easeInOut,
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: checked ? AppColors.accent : AppColors.specBackground,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: checked ? Colors.transparent : AppColors.dashedBorder,
+                  width: 1.5,
+                ),
+              ),
+              child: Center(
+                child: AnimatedScale(
+                  scale: checked ? 1.0 : 0.0,
+                  duration: AppProps.fast,
+                  curve: Curves.easeOutBack,
+                  child: AnimatedOpacity(
+                    opacity: checked ? 1.0 : 0.0,
+                    duration: AppProps.fast,
+                    child: const Icon(Icons.check, color: Colors.white, size: 14),
+                  ),
+                ),
               ),
             ),
-            child: checked
-                ? const Icon(Icons.check, color: Colors.white, size: 14)
-                : null,
           ),
         ),
         Space.x.t12,
@@ -311,6 +561,7 @@ class _AddTaskRow extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
 
   const _AddTaskRow({
+    super.key,
     required this.controller,
     required this.onSubmitted,
   });
@@ -356,4 +607,3 @@ class _AddTaskRow extends StatelessWidget {
     );
   }
 }
-
