@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:unbroken_mobile/features/core/auth/views/login/login.dart';
+import 'package:unbroken_mobile/features/core/goals/models/goal_folder.dart';
+import 'package:unbroken_mobile/features/core/goals/views/folder_form/folder_form.dart';
 import 'package:unbroken_mobile/features/core/habits/models/habit.dart';
 import 'package:unbroken_mobile/features/core/habits/views/detail/detail.dart';
 import 'package:unbroken_mobile/features/core/habits/views/form/form.dart';
@@ -34,6 +36,12 @@ Route<dynamic>? onGenerateRoutes(RouteSettings settings) {
       final habit = settings.arguments as Habit?;
       return SlideUpRoute(
         child: HabitFormScreen(habit: habit),
+        settings: settings,
+      );
+    case AppRoutes.goalFolderForm:
+      final folder = settings.arguments as GoalFolder?;
+      return SlideUpRoute(
+        child: FolderFormScreen(folder: folder),
         settings: settings,
       );
     default:

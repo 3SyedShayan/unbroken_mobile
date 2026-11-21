@@ -5,5 +5,6 @@ abstract class AppRoutes {
   static const onboarding = '/onboarding';
   static const habitDetail = '/habits/detail';
   static const habitForm = '/habits/form';
+  static const goalFolderForm = '/goals/folder/form';
 }
 
