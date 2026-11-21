@@ -19,6 +19,12 @@ abstract final class Collections {
   /// User Today's 3 focus subcollection: `users/{uid}/focus`
   static const String focus = 'focus';
 
+  /// User goal folders subcollection: `users/{uid}/goal_folders`
+  static const String goalFolders = 'goal_folders';
+
+  /// User goals subcollection: `users/{uid}/goals`
+  static const String goals = 'goals';
+
   /// User settings alias subcollection: `users/{uid}/settings`
   static const String settings = 'settings';
 
@@ -53,4 +59,19 @@ abstract final class Collections {
   /// Canonical path to a specific focus document: `users/{uid}/focus/{logicalDayKey}`
   static String focusDocPath(String uid, String logicalDayKey) =>
       '$users/$uid/$focus/$logicalDayKey';
+
+  /// Canonical path to a user's goal folders collection: `users/{uid}/goal_folders`
+  static String goalFoldersCollectionPath(String uid) =>
+      '$users/$uid/$goalFolders';
+
+  /// Canonical path to a specific goal folder document: `users/{uid}/goal_folders/{folderId}`
+  static String goalFolderDocPath(String uid, String folderId) =>
+      '$users/$uid/$goalFolders/$folderId';
+
+  /// Canonical path to a user's goals collection: `users/{uid}/goals`
+  static String goalsCollectionPath(String uid) => '$users/$uid/$goals';
+
+  /// Canonical path to a specific goal document: `users/{uid}/goals/{goalId}`
+  static String goalDocPath(String uid, String goalId) =>
+      '$users/$uid/$goals/$goalId';
 }
