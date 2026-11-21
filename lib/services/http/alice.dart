@@ -22,6 +22,9 @@ class AppAlice {
   }
 
   void init({GlobalKey<NavigatorState>? navigatorKey}) {
+    _alice ??= navigatorKey != null
+        ? Alice(navigatorKey: navigatorKey)
+        : Alice();
   }
 
   void setNavigatorKey(GlobalKey<NavigatorState> key) {

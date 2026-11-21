@@ -51,16 +51,26 @@ class EnhancedCrashlytics {
       await _setAppVersionInfo();
 
       final FlutterExceptionHandler? originalOnError = FlutterError.onError;
-      FlutterError.onError = (FlutterErrorDetails errorDetails) async {
-        /// Add navigation context to crashes
-        await _addNavigationContext();
-        await _crashlytics?.recordFlutterError(errorDetails);
-
-        /// Forward to original handler
-        originalOnError?.call(errorDetails);
+      FlutterError.onError = (FlutterErrorDetails errorDetails) {
+        if (kDebugMode) {
+          FlutterError.presentError(errorDetails);
+        } else {
+          originalOnError?.call(errorDetails);
+        }
+        _addNavigationContext().then((_) {
+          _crashlytics?.recordFlutterError(errorDetails);
+        }).catchError((_) {});
       };
 
       PlatformDispatcher.instance.onError = (error, stack) {
+        if (kDebugMode) {
+          '[UNHANDLED_ASYNC] $error'.appLog(
+            tag: 'PLATFORM',
+            level: AppLogLevel.error,
+            error: error,
+            stackTrace: stack,
+          );
+        }
         _recordEvent(
           error,
           stack,
