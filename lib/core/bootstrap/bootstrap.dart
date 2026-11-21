@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unbroken_mobile/app.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
@@ -12,12 +13,16 @@ import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/firebase_options.dart';
 import 'package:unbroken_mobile/services/cache/cache_service.dart';
 import 'package:unbroken_mobile/services/firebase/crash/crashlytics.dart';
+import 'package:unbroken_mobile/services/logging/app_bloc_observer.dart';
 import 'package:unbroken_mobile/services/notifications/local_notification_service.dart';
 
 Future<void> bootstrap([String? rawFlavor]) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Resolve flavor
+  // 1. Initialize BLoC error & failure observer
+  Bloc.observer = AppBlocObserver();
+
+  // 2. Resolve flavor
   final flavor = switch (rawFlavor?.trim().toLowerCase()) {
     'prod' => AppFlavor.prod,
     _ => AppFlavor.dev,
