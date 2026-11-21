@@ -7,27 +7,38 @@ class _GoalsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     App.init(context);
 
+    final user = AuthCubit.c(context).state.user;
+    if (user != null) {
+      GoalsCubit.c(context).startObserving(user.uid);
+    }
+
     return BlocBuilder<GoalsCubit, GoalsState>(
       builder: (context, state) {
         final activeFolders = state.activeFolders;
         final selectedFolder = state.selectedFolder;
         final overall = state.overallProgress;
 
-        return Screen(
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFFCF6EC), Color(0xFFF5E7D3)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+        return SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _GoalsHeader(
+                overall: overall,
+                onAddFolder: () {
+                  Navigator.push(
+                    context,
+                    SlideUpRoute(
+                      child: const FolderFormScreen(),
+                      settings: const RouteSettings(
+                        name: AppRoutes.goalFolderForm,
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
-            child: SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _GoalsHeader(
-                    overall: overall,
+              if (activeFolders.isEmpty)
+                Expanded(
+                  child: _EmptyFoldersView(
                     onAddFolder: () {
                       Navigator.push(
                         context,
@@ -40,43 +51,46 @@ class _GoalsTab extends StatelessWidget {
                       );
                     },
                   ),
-                  if (activeFolders.isEmpty)
-                    Expanded(
-                      child: _EmptyFoldersView(
-                        onAddFolder: () {
-                          Navigator.push(
-                            context,
-                            SlideUpRoute(
-                              child: const FolderFormScreen(),
-                              settings: const RouteSettings(
-                                name: AppRoutes.goalFolderForm,
-                              ),
-                            ),
-                          );
-                        },
+                )
+              else ...[
+                _FolderCarousel(
+                  folders: activeFolders,
+                  selectedId: selectedFolder?.id,
+                  onSelect: (id) => GoalsCubit.c(context).selectFolder(id),
+                  onAddFolder: () {
+                    Navigator.push(
+                      context,
+                      SlideUpRoute(
+                        child: const FolderFormScreen(),
+                        settings: const RouteSettings(
+                          name: AppRoutes.goalFolderForm,
+                        ),
                       ),
-                    )
-                  else ...[
-                    _FolderCarousel(
-                      folders: activeFolders,
-                      selectedId: selectedFolder?.id,
-                      onSelect: (id) => GoalsCubit.c(context).selectFolder(id),
-                      onAddFolder: () {
+                    );
+                  },
+                  onEditFolder: (folder) {
+                    Navigator.push(
+                      context,
+                      SlideUpRoute(
+                        child: FolderFormScreen(folder: folder),
+                        settings: const RouteSettings(
+                          name: AppRoutes.goalFolderForm,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                if (selectedFolder != null)
+                  Expanded(
+                    child: _ActiveFolderContent(
+                      folder: selectedFolder,
+                      goals: state.goalsForFolder(selectedFolder.id),
+                      progress: state.folderProgress(selectedFolder.id),
+                      onEditFolder: () {
                         Navigator.push(
                           context,
                           SlideUpRoute(
-                            child: const FolderFormScreen(),
-                            settings: const RouteSettings(
-                              name: AppRoutes.goalFolderForm,
-                            ),
-                          ),
-                        );
-                      },
-                      onEditFolder: (folder) {
-                        Navigator.push(
-                          context,
-                          SlideUpRoute(
-                            child: FolderFormScreen(folder: folder),
+                            child: FolderFormScreen(folder: selectedFolder),
                             settings: const RouteSettings(
                               name: AppRoutes.goalFolderForm,
                             ),
@@ -84,29 +98,9 @@ class _GoalsTab extends StatelessWidget {
                         );
                       },
                     ),
-                    if (selectedFolder != null)
-                      Expanded(
-                        child: _ActiveFolderContent(
-                          folder: selectedFolder,
-                          goals: state.goalsForFolder(selectedFolder.id),
-                          progress: state.folderProgress(selectedFolder.id),
-                          onEditFolder: () {
-                            Navigator.push(
-                              context,
-                              SlideUpRoute(
-                                child: FolderFormScreen(folder: selectedFolder),
-                                settings: const RouteSettings(
-                                  name: AppRoutes.goalFolderForm,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            ),
+                  ),
+              ],
+            ],
           ),
         );
       },
@@ -186,7 +180,7 @@ class _EmptyFoldersView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: Space.h.t32,
         child: Container(
           padding: Space.a.t28,

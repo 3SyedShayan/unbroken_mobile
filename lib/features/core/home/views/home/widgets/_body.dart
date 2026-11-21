@@ -46,31 +46,38 @@ class _BodyState extends State<_Body> {
               child: Padding(
                 padding: Space.v.t08,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _NavBarItem(
-                      icon: Icons.local_fire_department_rounded,
-                      label: 'Today',
-                      isSelected: _currentIndex == 0,
-                      onTap: () => setState(() => _currentIndex = 0),
+                    Expanded(
+                      child: _NavBarItem(
+                        icon: Icons.local_fire_department_rounded,
+                        label: 'Today',
+                        isSelected: _currentIndex == 0,
+                        onTap: () => setState(() => _currentIndex = 0),
+                      ),
                     ),
-                    _NavBarItem(
-                      icon: Icons.track_changes_rounded,
-                      label: 'Goals',
-                      isSelected: _currentIndex == 1,
-                      onTap: () => setState(() => _currentIndex = 1),
+                    Expanded(
+                      child: _NavBarItem(
+                        icon: Icons.track_changes_rounded,
+                        label: 'Goals',
+                        isSelected: _currentIndex == 1,
+                        onTap: () => setState(() => _currentIndex = 1),
+                      ),
                     ),
-                    _NavBarItem(
-                      icon: Icons.calendar_view_week_rounded,
-                      label: 'History',
-                      isSelected: _currentIndex == 2,
-                      onTap: () => setState(() => _currentIndex = 2),
+                    Expanded(
+                      child: _NavBarItem(
+                        icon: Icons.calendar_view_week_rounded,
+                        label: 'History',
+                        isSelected: _currentIndex == 2,
+                        onTap: () => setState(() => _currentIndex = 2),
+                      ),
                     ),
-                    _NavBarItem(
-                      icon: Icons.settings_rounded,
-                      label: 'Settings',
-                      isSelected: _currentIndex == 3,
-                      onTap: () => setState(() => _currentIndex = 3),
+                    Expanded(
+                      child: _NavBarItem(
+                        icon: Icons.settings_rounded,
+                        label: 'Settings',
+                        isSelected: _currentIndex == 3,
+                        onTap: () => setState(() => _currentIndex = 3),
+                      ),
                     ),
                   ],
                 ),
@@ -104,8 +111,9 @@ class _NavBarItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: Space.sym(20, 6),
+      child: Container(
+        color: Colors.transparent,
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
