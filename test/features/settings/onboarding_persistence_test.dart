@@ -7,6 +7,8 @@ import 'package:unbroken_mobile/features/core/auth/repositories/auth_repo.dart';
 import 'package:unbroken_mobile/features/core/auth/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/focus/repositories/focus_repo.dart';
 import 'package:unbroken_mobile/features/core/focus/viewmodel/cubit.dart';
+import 'package:unbroken_mobile/features/core/goals/repositories/goals_repo.dart';
+import 'package:unbroken_mobile/features/core/goals/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/habits/repositories/habits_repo.dart';
 import 'package:unbroken_mobile/features/core/habits/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/splash/views/splash/splash.dart';
@@ -109,6 +111,19 @@ class _FakeFocusRepo extends FocusRepo {
       const Stream.empty();
 }
 
+class _FakeGoalsRepo extends GoalsRepo {
+  _FakeGoalsRepo() : super.test();
+  @override
+  Stream<List<Map<String, dynamic>>> observeFolders(String uid) =>
+      const Stream.empty();
+  @override
+  Stream<List<Map<String, dynamic>>> observeGoals(
+    String uid, {
+    String? folderId,
+  }) =>
+      const Stream.empty();
+}
+
 void main() {
   group('SettingsCubit Onboarding State & Persistence', () {
     test('loads hasOnboarded: true from local preferences on startup', () async {
@@ -173,10 +188,12 @@ void main() {
   group('SplashScreen Navigation Routing Flow', () {
     late _FakeHabitsRepo habitsRepo;
     late _FakeFocusRepo focusRepo;
+    late _FakeGoalsRepo goalsRepo;
 
     setUp(() {
       habitsRepo = _FakeHabitsRepo();
       focusRepo = _FakeFocusRepo();
+      goalsRepo = _FakeGoalsRepo();
     });
 
     Widget buildTestApp({
@@ -191,6 +208,7 @@ void main() {
               create: (_) => SettingsCubit(repo: settingsRepo)),
           Provider<HabitsCubit>(create: (_) => HabitsCubit(repo: habitsRepo)),
           Provider<FocusCubit>(create: (_) => FocusCubit(repo: focusRepo)),
+          Provider<GoalsCubit>(create: (_) => GoalsCubit(repo: goalsRepo)),
         ],
         child: MaterialApp(
           navigatorObservers: [observer],
