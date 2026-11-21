@@ -6,6 +6,7 @@ import 'package:unbroken_mobile/configs/configs.dart';
 import 'package:unbroken_mobile/core/bindings/app_core_binding.dart';
 import 'package:unbroken_mobile/features/core/auth/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/focus/viewmodel/cubit.dart';
+import 'package:unbroken_mobile/features/core/goals/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/habits/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/support/connectivity/views/widgets/network_connectivity_overlay.dart';
 import 'package:unbroken_mobile/features/support/settings/viewmodel/cubit.dart';
@@ -25,6 +26,7 @@ class MainMobileApp extends StatelessWidget {
         BlocProvider<SettingsCubit>(create: (_) => SettingsCubit()),
         BlocProvider<HabitsCubit>(create: (_) => HabitsCubit()),
         BlocProvider<FocusCubit>(create: (_) => FocusCubit()),
+        BlocProvider<GoalsCubit>(create: (_) => GoalsCubit()),
       ],
       child: const _AppShell(),
     );
@@ -62,6 +64,7 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       try {
         HabitsCubit.c(context).onAppResumed();
         FocusCubit.c(context).onAppResumed();
+        GoalsCubit.c(context).onAppResumed();
       } catch (_) {}
     }
   }
