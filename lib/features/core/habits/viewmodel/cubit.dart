@@ -58,13 +58,24 @@ class HabitsCubit extends Cubit<HabitsState> {
         for (final m in rawList) {
           try {
             entries.add(Entry.fromJson(m));
-          } catch (e) {
-            'Failed to parse entry: $m, error: $e'.appLog(level: AppLogLevel.warning);
+          } catch (e, s) {
+            final id = m['id'] ?? 'unknown';
+            'Failed to parse entry ($id): $e'.appLog(
+              tag: 'HABITS',
+              level: AppLogLevel.error,
+              error: e,
+              stackTrace: s,
+            );
           }
         }
         emit(state.copyWith(entries: entries));
       }, onError: (Object e, StackTrace s) {
-        'Error in observeEntries: $e'.appLog(level: AppLogLevel.error);
+        'Error in observeEntries: $e'.appLog(
+          tag: 'HABITS',
+          level: AppLogLevel.error,
+          error: e,
+          stackTrace: s,
+        );
       });
     }
   }
@@ -80,8 +91,14 @@ class HabitsCubit extends Cubit<HabitsState> {
       for (final m in rawList) {
         try {
           habits.add(Habit.fromJson(m));
-        } catch (e) {
-          'Failed to parse habit: $m, error: $e'.appLog(level: AppLogLevel.warning);
+        } catch (e, s) {
+          final id = m['id'] ?? 'unknown';
+          'Failed to parse habit ($id): $e'.appLog(
+            tag: 'HABITS',
+            level: AppLogLevel.error,
+            error: e,
+            stackTrace: s,
+          );
         }
       }
       emit(state.copyWith(
@@ -89,7 +106,12 @@ class HabitsCubit extends Cubit<HabitsState> {
         fetch: state.fetch.toSuccess(data: habits),
       ));
     }, onError: (Object e, StackTrace s) {
-      'Error in observeHabits: $e'.appLog(level: AppLogLevel.error);
+      'Error in observeHabits: $e'.appLog(
+        tag: 'HABITS',
+        level: AppLogLevel.error,
+        error: e,
+        stackTrace: s,
+      );
     });
 
     final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
@@ -100,13 +122,24 @@ class HabitsCubit extends Cubit<HabitsState> {
       for (final m in rawList) {
         try {
           entries.add(Entry.fromJson(m));
-        } catch (e) {
-          'Failed to parse entry: $m, error: $e'.appLog(level: AppLogLevel.warning);
+        } catch (e, s) {
+          final id = m['id'] ?? 'unknown';
+          'Failed to parse entry ($id): $e'.appLog(
+            tag: 'HABITS',
+            level: AppLogLevel.error,
+            error: e,
+            stackTrace: s,
+          );
         }
       }
       emit(state.copyWith(entries: entries));
     }, onError: (Object e, StackTrace s) {
-      'Error in observeEntries: $e'.appLog(level: AppLogLevel.error);
+      'Error in observeEntries: $e'.appLog(
+        tag: 'HABITS',
+        level: AppLogLevel.error,
+        error: e,
+        stackTrace: s,
+      );
     });
   }
 

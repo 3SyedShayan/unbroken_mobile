@@ -56,8 +56,14 @@ class FocusCubit extends Cubit<FocusState> {
         for (final m in rawList) {
           try {
             list.add(DailyFocus.fromJson(m));
-          } catch (e) {
-            'Failed to parse daily focus: $m, error: $e'.appLog(level: AppLogLevel.warning);
+          } catch (e, s) {
+            final key = m['logicalDayKey'] ?? 'unknown';
+            'Failed to parse daily focus ($key): $e'.appLog(
+              tag: 'FOCUS',
+              level: AppLogLevel.error,
+              error: e,
+              stackTrace: s,
+            );
           }
         }
         emit(state.copyWith(
@@ -65,7 +71,12 @@ class FocusCubit extends Cubit<FocusState> {
           fetch: state.fetch.toSuccess(data: list),
         ));
       }, onError: (Object e, StackTrace s) {
-        'Error in observeFocus: $e'.appLog(level: AppLogLevel.error);
+        'Error in observeFocus: $e'.appLog(
+          tag: 'FOCUS',
+          level: AppLogLevel.error,
+          error: e,
+          stackTrace: s,
+        );
       });
     }
   }
@@ -91,8 +102,14 @@ class FocusCubit extends Cubit<FocusState> {
       for (final m in rawList) {
         try {
           list.add(DailyFocus.fromJson(m));
-        } catch (e) {
-          'Failed to parse daily focus: $m, error: $e'.appLog(level: AppLogLevel.warning);
+        } catch (e, s) {
+          final key = m['logicalDayKey'] ?? 'unknown';
+          'Failed to parse daily focus ($key): $e'.appLog(
+            tag: 'FOCUS',
+            level: AppLogLevel.error,
+            error: e,
+            stackTrace: s,
+          );
         }
       }
       emit(state.copyWith(
@@ -100,7 +117,12 @@ class FocusCubit extends Cubit<FocusState> {
         fetch: state.fetch.toSuccess(data: list),
       ));
     }, onError: (Object e, StackTrace s) {
-      'Error in observeFocus: $e'.appLog(level: AppLogLevel.error);
+      'Error in observeFocus: $e'.appLog(
+        tag: 'FOCUS',
+        level: AppLogLevel.error,
+        error: e,
+        stackTrace: s,
+      );
     });
   }
 

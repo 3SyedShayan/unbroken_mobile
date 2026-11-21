@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:unbroken_mobile/configs/configs.dart';
+import 'package:unbroken_mobile/services/logging/app_log.dart';
 
 /// Represents the body and status code of a HTTP response that failed
 typedef HttpFailure = ({
@@ -18,18 +19,30 @@ sealed class Fault<T> {
   const Fault._internal(this.stackTrace);
   final StackTrace stackTrace;
 
-  factory Fault.fromObjectAndStackTrace(Object object, StackTrace stackTrace) =>
-      switch (object) {
-        final http.ClientException ex =>
-          HttpFault.fromClientException(ex, stackTrace),
-        final FirebaseAuthException ex =>
-          FirebaseAuthFault.fromFirebaseAuthException(ex, stackTrace),
-        final FirebaseException ex =>
-          FirebaseFault.fromFirebase(ex, stackTrace),
-        final Exception ex => ExceptionFault(ex, stackTrace),
-        final Error err => ErrorFault(err, stackTrace),
-        _ => UnknownFault(object.toString(), stackTrace),
-      };
+  factory Fault.fromObjectAndStackTrace(Object object, StackTrace stackTrace) {
+    final Fault<T> fault = switch (object) {
+      final http.ClientException ex =>
+        HttpFault<T>.fromClientException(ex, stackTrace),
+      final FirebaseAuthException ex =>
+        FirebaseAuthFault<T>.fromFirebaseAuthException(ex, stackTrace),
+      final FirebaseException ex =>
+        FirebaseFault<T>.fromFirebase(ex, stackTrace),
+      final Exception ex => ExceptionFault<T>(ex, stackTrace),
+      final Error err => ErrorFault<T>(err, stackTrace),
+      _ => UnknownFault<T>(object.toString(), stackTrace),
+    };
+
+    if (kDebugMode) {
+      '[FAULT:${fault.runtimeType}] ${fault.message}'.appLog(
+        tag: 'FAULT',
+        level: AppLogLevel.error,
+        error: object,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return fault;
+  }
 
   @override
   String toString() => message;
@@ -85,7 +98,6 @@ final class HttpFault<T> extends Fault<T> {
       ),
     };
 
-    debugPrint('[HttpFault] Status: $statusCode | Message: ${httpFailure.message}');
     return HttpFault(httpFailure, stackTrace);
   }
 
@@ -100,7 +112,6 @@ final class HttpFault<T> extends Fault<T> {
       status: null,
     );
 
-    debugPrint('[HttpFault] ClientException: ${ex.message}');
     return HttpFault(httpFailure, stackTrace);
   }
 
@@ -123,8 +134,6 @@ final class FirebaseAuthFault<T> extends Fault<T> {
     FirebaseAuthException ex,
     StackTrace stackTrace,
   ) {
-    debugPrint('[FirebaseAuthFault] Code: ${ex.code} | Message: ${ex.message}');
-
     return switch (ex.code) {
       'user-not-found' => FirebaseAuthFault(
         'No account found with this email.',
@@ -180,8 +189,6 @@ final class FirebaseFault<T> extends Fault<T> {
     FirebaseException ex,
     StackTrace stackTrace,
   ) {
-    debugPrint('[FirebaseFault] Code: ${ex.code} | Message: ${ex.message}');
-
     return switch (ex.code) {
       'permission-denied' => FirebaseFault(
         'Permission denied. Please check your internet connection.',
@@ -219,7 +226,6 @@ final class AiFault<T> extends Fault<T> {
 
   factory AiFault.fromException(Object ex, StackTrace stackTrace) {
     final message = ex.toString();
-    debugPrint('[AiFault] $message');
     return AiFault(message, stackTrace);
   }
 }
