@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
 import 'package:unbroken_mobile/features/core/focus/models/focus_item.dart';
 import 'package:unbroken_mobile/features/core/focus/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/support/settings/models/day_settings.dart';
+import 'package:unbroken_mobile/shared/widgets/animations/animated_checkmark.dart';
+import 'package:unbroken_mobile/shared/widgets/animations/animated_text.dart';
 
 class FocusListCard extends StatefulWidget {
   final DateTime today;
@@ -247,10 +250,21 @@ class _FocusHeader extends StatelessWidget {
                 children: [
                   const Text('🔥', style: TextStyle(fontSize: 12)),
                   Space.x.t04,
-                  Text(
-                    '$streak',
-                    style: AppText.h3b.cl(
-                      cleared ? AppColors.accent : AppColors.subText,
+                  AnimatedSwitcher(
+                    duration: AppProps.fast,
+                    transitionBuilder: (child, animation) => ScaleTransition(
+                      scale: CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutBack,
+                      ),
+                      child: child,
+                    ),
+                    child: Text(
+                      '$streak',
+                      key: ValueKey(streak),
+                      style: AppText.h3b.cl(
+                        cleared ? AppColors.accent : AppColors.subText,
+                      ),
                     ),
                   ),
                 ],
@@ -258,8 +272,8 @@ class _FocusHeader extends StatelessWidget {
           ],
         ),
         Space.y.t04,
-        Text(
-          statusLine,
+        AppAnimatedText(
+          text: statusLine,
           style: AppText.b2.cl(
             cleared ? AppColors.accent : AppColors.hint,
           ),
@@ -480,7 +494,12 @@ class _FocusRowState extends State<_FocusRow> {
           onTapDown: hasText ? (_) => setState(() => _isCheckboxPressed = true) : null,
           onTapUp: hasText ? (_) => setState(() => _isCheckboxPressed = false) : null,
           onTapCancel: hasText ? () => setState(() => _isCheckboxPressed = false) : null,
-          onTap: hasText ? widget.onToggle : null,
+          onTap: hasText
+              ? () {
+                  HapticFeedback.lightImpact();
+                  widget.onToggle();
+                }
+              : null,
           behavior: HitTestBehavior.opaque,
           child: AnimatedScale(
             scale: _isCheckboxPressed ? 0.88 : 1.0,
@@ -500,15 +519,12 @@ class _FocusRowState extends State<_FocusRow> {
                 ),
               ),
               child: Center(
-                child: AnimatedScale(
-                  scale: checked ? 1.0 : 0.0,
-                  duration: AppProps.fast,
-                  curve: Curves.easeOutBack,
-                  child: AnimatedOpacity(
-                    opacity: checked ? 1.0 : 0.0,
-                    duration: AppProps.fast,
-                    child: const Icon(Icons.check, color: Colors.white, size: 14),
-                  ),
+                child: AppAnimatedCheckmark(
+                  checked: checked,
+                  size: 14,
+                  strokeWidth: 2.0,
+                  color: Colors.white,
+                  alwaysMountIcon: true,
                 ),
               ),
             ),
