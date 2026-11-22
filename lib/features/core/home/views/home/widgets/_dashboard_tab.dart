@@ -59,47 +59,54 @@ class _DashboardTab extends StatelessWidget {
                     ),
                     Space.y.t12,
                   ],
-                  for (var i = 0; i < habits.length; i++) ...[
-                    HabitRowCard(
-                      habit: habits[i],
-                      isDone: habitsState.isCompleted(
-                        habit: habits[i],
-                        asOf: now,
-                        settings: settings,
-                      ),
-                      stats: habitsState.streakStats(
-                        habit: habits[i],
-                        asOf: now,
-                        settings: settings,
-                      ),
-                      last14: _computeLast14(
-                        habit: habits[i],
-                        today: today,
-                        habitsState: habitsState,
-                        settings: settings,
-                      ),
-                      showCoachMark: showCoachMark && i == firstUndoneIndex,
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          AppRoutes.habitDetail,
-                          arguments: habits[i],
-                        );
-                      },
-                      onToggle: () {
-                        if (!settings.didCheckInOnce) {
-                          final uid = AuthCubit.c(context).state.user?.uid;
-                          SettingsCubit.c(context).setDidCheckInOnce(true, uid);
-                        }
-                        HabitsCubit.c(context).toggleCheckIn(
-                          habit: habits[i],
-                          asOf: now,
-                          settings: settings,
+                    AnimatedReorderList<Habit>(
+                      items: habits,
+                      itemKey: (h) => h.id,
+                      duration: AppProps.normal,
+                      separator: Space.y.t12,
+                      itemBuilder: (context, habit, i) {
+                        return HabitRowCard(
+                          key: ValueKey(habit.id),
+                          habit: habit,
+                          isDone: habitsState.isCompleted(
+                            habit: habit,
+                            asOf: now,
+                            settings: settings,
+                          ),
+                          stats: habitsState.streakStats(
+                            habit: habit,
+                            asOf: now,
+                            settings: settings,
+                          ),
+                          last14: _computeLast14(
+                            habit: habit,
+                            today: today,
+                            habitsState: habitsState,
+                            settings: settings,
+                          ),
+                          showCoachMark: showCoachMark && i == firstUndoneIndex,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              AppRoutes.habitDetail,
+                              arguments: habit,
+                            );
+                          },
+                          onToggle: () {
+                            if (!settings.didCheckInOnce) {
+                              final uid = AuthCubit.c(context).state.user?.uid;
+                              SettingsCubit.c(context).setDidCheckInOnce(true, uid);
+                            }
+                            HabitsCubit.c(context).toggleCheckIn(
+                              habit: habit,
+                              asOf: now,
+                              settings: settings,
+                            );
+                          },
                         );
                       },
                     ),
                     Space.y.t12,
-                  ],
                   AddHabitButton(
                     onTap: () {
                       Navigator.pushNamed(context, AppRoutes.habitForm);
@@ -153,8 +160,8 @@ class _DashboardHeader extends StatelessWidget {
           style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 1.0),
         ),
         Space.y.t04,
-        Text(
-          greeting,
+        AppAnimatedText(
+          text: greeting,
           style: AppText.h1b.cl(AppColors.text),
         ),
       ],

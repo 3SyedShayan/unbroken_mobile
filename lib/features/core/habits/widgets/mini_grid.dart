@@ -19,7 +19,9 @@ class MiniGrid extends StatelessWidget {
       children: [
         for (var i = 0; i < done.length; i++) ...[
           if (i > 0) Space.x.t04,
-          Container(
+          AnimatedContainer(
+            duration: AppProps.fast,
+            curve: Curves.easeOutCubic,
             width: 5,
             height: 12,
             decoration: BoxDecoration(

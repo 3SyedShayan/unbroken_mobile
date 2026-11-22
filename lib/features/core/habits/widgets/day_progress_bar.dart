@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
+import 'package:unbroken_mobile/shared/widgets/animations/animated_text.dart';
 
 class DayProgressBar extends StatelessWidget {
   final int completed;
@@ -54,14 +55,15 @@ class DayProgressBar extends StatelessWidget {
           },
         ),
         Space.y.t08,
-        Text(
-          isAllDone
+        AppAnimatedText(
+          text: isAllDone
               ? 'All $total done — nice fire 🔥'
               : '$completed of $total habits done today',
-          style: AppText.b2.cl(AppColors.subText),
+          style: AppText.b2.cl(
+            isAllDone ? AppColors.accent : AppColors.subText,
+          ),
         ),
       ],
     );
   }
 }
-
