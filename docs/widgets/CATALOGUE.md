@@ -53,6 +53,19 @@ UIFlash.success(context, 'Changes saved');
 UIFlash.error(context, state.action.errorMessage);
 ```
 
+### `AppActivityHeatmap` (`design/heatmap/app_activity_heatmap.dart`)
+GitHub-style 5-level (`0..4`) intensity activity heatmap supporting `HeatmapLayout.calendarMonth` (1M) and `HeatmapLayout.weekColumns` (3M fit-width / 6M right-anchored scrollable).
+```dart
+AppActivityHeatmap(
+  baseColor: AppTheme.c.accent,
+  today: today,
+  layout: HeatmapLayout.weekColumns,
+  weeks: 13,
+  fitWidth: true,
+  levelForDate: (day) => summaryLevel(day),
+)
+```
+
 ---
 
 ## 3. Fluent Animation Extensions (`lib/shared/widgets/animations/`)

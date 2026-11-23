@@ -30,7 +30,7 @@ class _BodyState extends State<_Body> {
             children: const [
               _DashboardTab(),
               _GoalsTab(),
-              _HistoryTab(),
+              _ProgressTab(),
               _SettingsTab(),
             ],
           ),
@@ -65,8 +65,8 @@ class _BodyState extends State<_Body> {
                     ),
                     Expanded(
                       child: _NavBarItem(
-                        icon: Icons.calendar_view_week_rounded,
-                        label: 'History',
+                        icon: Icons.insights_rounded,
+                        label: 'Progress',
                         isSelected: _currentIndex == 2,
                         onTap: () => setState(() => _currentIndex = 2),
                       ),

@@ -19,7 +19,7 @@ Splash Screen (/splash)
 | Screen | Route Path | Purpose |
 |---|---|---|
 | `SplashScreen` | `/splash` | App initialization, auth check, bootstrap |
-| `HomeScreen` | `/home` | Main application productivity hub (Today, Goals, History, Settings) |
+| `HomeScreen` | `/home` | Main application productivity hub (Today, Goals, Progress, Settings) |
 | `LoginScreen` | `/login` | User authentication & onboarding |
 | `FolderFormScreen` | `/goals/folder/form` | Create or edit a goal folder (Weekly, Monthly, Weekend, Custom) |
 
