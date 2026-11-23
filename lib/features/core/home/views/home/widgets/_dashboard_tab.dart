@@ -77,11 +77,9 @@ class _DashboardTab extends StatelessWidget {
                             asOf: now,
                             settings: settings,
                           ),
-                          last14: _computeLast14(
+                          recentDays: habitsState.recentDaysCompletion(
                             habit: habit,
                             today: today,
-                            habitsState: habitsState,
-                            settings: settings,
                           ),
                           showCoachMark: showCoachMark && i == firstUndoneIndex,
                           onTap: () {
@@ -119,24 +117,6 @@ class _DashboardTab extends StatelessWidget {
         );
       },
     );
-  }
-
-  List<bool> _computeLast14({
-    required Habit habit,
-    required DateTime today,
-    required HabitsState habitsState,
-    required DaySettings settings,
-  }) {
-    final list = <bool>[];
-    for (var i = 0; i < 14; i++) {
-      final day = today.subtract(Duration(days: 13 - i));
-      list.add(habitsState.isCompleted(
-        habit: habit,
-        asOf: day,
-        settings: settings,
-      ));
-    }
-    return list;
   }
 }
 

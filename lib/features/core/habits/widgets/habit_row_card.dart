@@ -10,7 +10,7 @@ class HabitRowCard extends StatefulWidget {
   final Habit habit;
   final bool isDone;
   final StreakStats stats;
-  final List<bool> last14;
+  final List<bool> recentDays;
   final bool showCoachMark;
   final VoidCallback onTap;
   final VoidCallback onToggle;
@@ -20,7 +20,7 @@ class HabitRowCard extends StatefulWidget {
     required this.habit,
     required this.isDone,
     required this.stats,
-    required this.last14,
+    required this.recentDays,
     this.showCoachMark = false,
     required this.onTap,
     required this.onToggle,
@@ -130,7 +130,16 @@ class _HabitRowCardState extends State<HabitRowCard> {
                               ],
                             ),
                             Space.x.t08,
-                            MiniGrid(color: widget.habit.color, done: widget.last14),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: MiniGrid(
+                                  color: widget.habit.color,
+                                  done: widget.recentDays,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ],

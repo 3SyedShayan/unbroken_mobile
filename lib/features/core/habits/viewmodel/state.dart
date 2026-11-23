@@ -36,6 +36,27 @@ class HabitsState extends Equatable {
     return entries.any((e) => e.habitId == habit.id && e.logicalDayKey == dayKey);
   }
 
+  /// Returns completion flags for the last [days] logical days ending at
+  /// [today], ordered from oldest (`today - (days - 1)`) to `today`.
+  List<bool> recentDaysCompletion({
+    required Habit habit,
+    required DateTime today,
+    int days = 10,
+  }) {
+    final completedKeys = entries
+        .where((e) => e.habitId == habit.id)
+        .map((e) => e.logicalDayKey)
+        .toSet();
+    return List<bool>.generate(days, (i) {
+      final day = DateTime(
+        today.year,
+        today.month,
+        today.day - (days - 1 - i),
+      );
+      return completedKeys.contains(DaySettings.dayKey(day));
+    });
+  }
+
   ({int completed, int total}) todayProgress({
     required DateTime asOf,
     required DaySettings settings,
