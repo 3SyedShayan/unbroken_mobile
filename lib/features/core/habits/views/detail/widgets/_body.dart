@@ -1,9 +1,23 @@
 part of '../detail.dart';
 
-class _Body extends StatelessWidget {
+class _Body extends StatefulWidget {
   final Habit habit;
 
   const _Body({required this.habit});
+
+  @override
+  State<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends State<_Body> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      HabitsCubit.c(context).ensureHistoryWindowDays(135);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,8 +33,8 @@ class _Body extends StatelessWidget {
           builder: (context, habitsState) {
             // Find live version of this habit if updated
             final liveHabit = habitsState.habits.firstWhere(
-              (h) => h.id == habit.id,
-              orElse: () => habit,
+              (h) => h.id == widget.habit.id,
+              orElse: () => widget.habit,
             );
 
             final metrics = HabitMetrics(
@@ -35,6 +49,22 @@ class _Body extends StatelessWidget {
               asOf: now,
               settings: settings,
             );
+
+            final completedKeys = habitsState.entries
+                .where((e) => e.habitId == liveHabit.id)
+                .map((e) => e.logicalDayKey)
+                .toSet();
+            final start18w = DateTime(
+              today.year,
+              today.month,
+              today.day - (18 * 7 - 1),
+            );
+            final depthLevels =
+                ProgressAggregator.computeHabitStreakDepthLevels(
+                  completedDayKeys: completedKeys,
+                  startDay: start18w,
+                  today: today,
+                );
 
             return Screen(
               child: Container(
@@ -106,7 +136,9 @@ class _Body extends StatelessWidget {
                             Space.y.t24,
                             Text(
                               'LAST 18 WEEKS',
-                              style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 1.2),
+                              style: AppText.l1b
+                                  .cl(AppColors.inkFaint)
+                                  .copyWith(letterSpacing: 1.2),
                             ),
                             Space.y.t12,
                             Container(
@@ -114,24 +146,30 @@ class _Body extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: AppColors.specBackground,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.border, width: 1),
+                                border: Border.all(
+                                  color: AppColors.border,
+                                  width: 1,
+                                ),
                               ),
-                              child: ContributionGrid(
-                                color: liveHabit.color,
+                              child: AppActivityHeatmap(
+                                baseColor: liveHabit.color,
                                 today: today,
                                 weekStartsMonday: settings.weekStartMonday,
+                                layout: HeatmapLayout.weekColumns,
                                 weeks: 18,
-                                isDone: (d) => habitsState.isCompleted(
-                                  habit: liveHabit,
-                                  asOf: d,
-                                  settings: settings,
-                                ),
+                                fitWidth: false,
+                                maxCellSize: 20,
+                                showLegend: true,
+                                levelForDate: (d) =>
+                                    depthLevels[DaySettings.dayKey(d)] ?? 0,
                               ),
                             ),
                             Space.y.t24,
                             Text(
                               DateFormat('MMMM yyyy').format(now).toUpperCase(),
-                              style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 1.2),
+                              style: AppText.l1b
+                                  .cl(AppColors.inkFaint)
+                                  .copyWith(letterSpacing: 1.2),
                             ),
                             Space.y.t12,
                             Container(
@@ -139,7 +177,10 @@ class _Body extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: AppColors.specBackground,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.border, width: 1),
+                                border: Border.all(
+                                  color: AppColors.border,
+                                  width: 1,
+                                ),
                               ),
                               child: MonthHeatmap(
                                 color: liveHabit.color,
@@ -189,15 +230,14 @@ class _Body extends StatelessWidget {
     required bool isDone,
     required DaySettings settings,
   }) {
-    final isSameDay = targetDay.year == today.year &&
+    final isSameDay =
+        targetDay.year == today.year &&
         targetDay.month == today.month &&
         targetDay.day == today.day;
     if (isSameDay) {
-      HabitsCubit.c(context).toggleCheckIn(
-        habit: habit,
-        asOf: targetDay,
-        settings: settings,
-      );
+      HabitsCubit.c(
+        context,
+      ).toggleCheckIn(habit: habit, asOf: targetDay, settings: settings);
       return;
     }
 
@@ -268,7 +308,10 @@ class _DetailHeader extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(habit.emoji.isEmpty ? '🔥' : habit.emoji, style: const TextStyle(fontSize: 20)),
+                Text(
+                  habit.emoji.isEmpty ? '🔥' : habit.emoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
                 Space.x.t08,
                 Flexible(
                   child: Text(
@@ -331,7 +374,9 @@ class _HeroFlameBlock extends StatelessWidget {
           Space.y.t04,
           Text(
             'DAY STREAK',
-            style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 2.0),
+            style: AppText.l1b
+                .cl(AppColors.inkFaint)
+                .copyWith(letterSpacing: 2.0),
           ),
           Space.y.t16,
           GestureDetector(
@@ -340,7 +385,9 @@ class _HeroFlameBlock extends StatelessWidget {
             child: Container(
               padding: Space.sym(24, 12),
               decoration: BoxDecoration(
-                color: isDone ? habit.color.withValues(alpha: 0.14) : habit.color,
+                color: isDone
+                    ? habit.color.withValues(alpha: 0.14)
+                    : habit.color,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
@@ -366,10 +413,7 @@ class _StatCards extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _StatTile(
-            value: '${metrics.stats.best}',
-            label: 'Longest',
-          ),
+          child: _StatTile(value: '${metrics.stats.best}', label: 'Longest'),
         ),
         Space.x.t08,
         Expanded(
@@ -380,10 +424,7 @@ class _StatCards extends StatelessWidget {
         ),
         Space.x.t08,
         Expanded(
-          child: _StatTile(
-            value: '${metrics.totalDays}',
-            label: 'Total days',
-          ),
+          child: _StatTile(value: '${metrics.totalDays}', label: 'Total days'),
         ),
       ],
     );
@@ -442,7 +483,9 @@ class _ThisWeekSection extends StatelessWidget {
       children: [
         Text(
           'THIS WEEK',
-          style: AppText.l1b.cl(AppColors.inkFaint).copyWith(letterSpacing: 1.2),
+          style: AppText.l1b
+              .cl(AppColors.inkFaint)
+              .copyWith(letterSpacing: 1.2),
         ),
         Space.y.t12,
         Container(
@@ -498,7 +541,10 @@ class _WeekDayRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     App.init(context);
-    final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
+    final isToday =
+        day.year == today.year &&
+        day.month == today.month &&
+        day.day == today.day;
     final isFuture = day.isAfter(today);
     final letter = DateFormat('E').format(day).substring(0, 1);
 
@@ -539,4 +585,3 @@ class _WeekDayRing extends StatelessWidget {
     );
   }
 }
-
