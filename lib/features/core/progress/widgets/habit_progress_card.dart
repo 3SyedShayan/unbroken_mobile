@@ -97,7 +97,9 @@ class HabitProgressCard extends StatelessWidget {
               showLegend: false,
               showDayNumbers: false,
               levelForDate: (date) =>
-                  summary.streakDepthLevels[DaySettings.dayKey(date)] ?? 0,
+                  summary.completedDayKeys.contains(DaySettings.dayKey(date))
+                      ? 4
+                      : 0,
             ),
           ],
         ),

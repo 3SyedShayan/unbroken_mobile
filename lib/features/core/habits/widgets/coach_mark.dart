@@ -55,11 +55,11 @@ class _CoachMarkState extends State<CoachMark>
           Container(
             padding: Space.sym(12, 6),
             decoration: BoxDecoration(
-              color: AppColors.accent,
+              color: AppTheme.c.accent,
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.35),
+                  color: AppTheme.c.accent.withValues(alpha: 0.35),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),
@@ -67,14 +67,14 @@ class _CoachMarkState extends State<CoachMark>
             ),
             child: Text(
               widget.text,
-              style: AppText.l1b.cl(Colors.white),
+              style: AppText.l1b.cl(AppTheme.c.onAccent),
             ),
           ),
           Padding(
             padding: const EdgeInsets.only(right: 14),
             child: CustomPaint(
               size: const Size(12, 6),
-              painter: _DownTrianglePainter(color: AppColors.accent),
+              painter: _DownTrianglePainter(color: AppTheme.c.accent),
             ),
           ),
         ],

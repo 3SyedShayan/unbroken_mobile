@@ -44,27 +44,15 @@ class _BodyState extends State<_Body> {
               now: now,
             );
 
-            final isDone = habitsState.isCompleted(
+            final isDone = habitsState.isCompletedForDay(
               habit: liveHabit,
-              asOf: now,
-              settings: settings,
+              day: today,
             );
 
             final completedKeys = habitsState.entries
                 .where((e) => e.habitId == liveHabit.id)
                 .map((e) => e.logicalDayKey)
                 .toSet();
-            final start18w = DateTime(
-              today.year,
-              today.month,
-              today.day - (18 * 7 - 1),
-            );
-            final depthLevels =
-                ProgressAggregator.computeHabitStreakDepthLevels(
-                  completedDayKeys: completedKeys,
-                  startDay: start18w,
-                  today: today,
-                );
 
             return Screen(
               child: Container(
@@ -99,9 +87,9 @@ class _BodyState extends State<_Body> {
                               currentStreak: metrics.stats.current,
                               isDone: isDone,
                               onToggle: () {
-                                HabitsCubit.c(context).toggleCheckIn(
+                                HabitsCubit.c(context).toggleCheckInForDay(
                                   habit: liveHabit,
-                                  asOf: now,
+                                  day: today,
                                   settings: settings,
                                 );
                               },
@@ -113,10 +101,9 @@ class _BodyState extends State<_Body> {
                               habit: liveHabit,
                               today: today,
                               weekStartsMonday: settings.weekStartMonday,
-                              isDone: (d) => habitsState.isCompleted(
+                              isDone: (d) => habitsState.isCompletedForDay(
                                 habit: liveHabit,
-                                asOf: d,
-                                settings: settings,
+                                day: d,
                               ),
                               onToggleDay: (d) {
                                 _confirmAndToggle(
@@ -124,10 +111,9 @@ class _BodyState extends State<_Body> {
                                   habit: liveHabit,
                                   targetDay: d,
                                   today: today,
-                                  isDone: habitsState.isCompleted(
+                                  isDone: habitsState.isCompletedForDay(
                                     habit: liveHabit,
-                                    asOf: d,
-                                    settings: settings,
+                                    day: d,
                                   ),
                                   settings: settings,
                                 );
@@ -159,14 +145,18 @@ class _BodyState extends State<_Body> {
                                 weeks: 18,
                                 fitWidth: false,
                                 maxCellSize: 20,
-                                showLegend: true,
+                                showLegend: false,
                                 levelForDate: (d) =>
-                                    depthLevels[DaySettings.dayKey(d)] ?? 0,
+                                    completedKeys.contains(
+                                      DaySettings.dayKey(d),
+                                    )
+                                    ? 4
+                                    : 0,
                               ),
                             ),
                             Space.y.t24,
                             Text(
-                              DateFormat('MMMM yyyy').format(now).toUpperCase(),
+                              DateFormat('MMMM yyyy').format(today).toUpperCase(),
                               style: AppText.l1b
                                   .cl(AppColors.inkFaint)
                                   .copyWith(letterSpacing: 1.2),
@@ -186,10 +176,9 @@ class _BodyState extends State<_Body> {
                                 color: liveHabit.color,
                                 today: today,
                                 weekStartsMonday: settings.weekStartMonday,
-                                isDone: (d) => habitsState.isCompleted(
+                                isDone: (d) => habitsState.isCompletedForDay(
                                   habit: liveHabit,
-                                  asOf: d,
-                                  settings: settings,
+                                  day: d,
                                 ),
                                 onToggleDay: (d) {
                                   _confirmAndToggle(
@@ -197,10 +186,9 @@ class _BodyState extends State<_Body> {
                                     habit: liveHabit,
                                     targetDay: d,
                                     today: today,
-                                    isDone: habitsState.isCompleted(
+                                    isDone: habitsState.isCompletedForDay(
                                       habit: liveHabit,
-                                      asOf: d,
-                                      settings: settings,
+                                      day: d,
                                     ),
                                     settings: settings,
                                   );
@@ -237,7 +225,7 @@ class _BodyState extends State<_Body> {
     if (isSameDay) {
       HabitsCubit.c(
         context,
-      ).toggleCheckIn(habit: habit, asOf: targetDay, settings: settings);
+      ).toggleCheckInForDay(habit: habit, day: targetDay, settings: settings);
       return;
     }
 
@@ -265,9 +253,9 @@ class _BodyState extends State<_Body> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              HabitsCubit.c(context).toggleCheckIn(
+              HabitsCubit.c(context).toggleCheckInForDay(
                 habit: habit,
-                asOf: targetDay,
+                day: targetDay,
                 settings: settings,
               );
             },
@@ -517,9 +505,12 @@ class _ThisWeekSection extends StatelessWidget {
     final firstWeekday = weekStartsMonday ? DateTime.monday : DateTime.sunday;
     final weekdayOfToday = today.weekday;
     final rowOfToday = (weekdayOfToday - firstWeekday + 7) % 7;
-    final weekStart = today.subtract(Duration(days: rowOfToday));
+    final weekStart = DateTime(today.year, today.month, today.day - rowOfToday);
 
-    return List.generate(7, (i) => weekStart.add(Duration(days: i)));
+    return List.generate(
+      7,
+      (i) => DateTime(weekStart.year, weekStart.month, weekStart.day + i),
+    );
   }
 }
 

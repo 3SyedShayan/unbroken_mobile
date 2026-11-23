@@ -12,6 +12,7 @@ class HabitRowCard extends StatefulWidget {
   final StreakStats stats;
   final List<bool> recentDays;
   final bool showCoachMark;
+  final bool isAtRisk;
   final VoidCallback onTap;
   final VoidCallback onToggle;
 
@@ -22,6 +23,7 @@ class HabitRowCard extends StatefulWidget {
     required this.stats,
     required this.recentDays,
     this.showCoachMark = false,
+    this.isAtRisk = false,
     required this.onTap,
     required this.onToggle,
   });
@@ -56,14 +58,16 @@ class _HabitRowCardState extends State<HabitRowCard> {
               padding: Space.a.t12,
               decoration: BoxDecoration(
                 color: widget.isDone
-                    ? AppColors.specBackground.withValues(alpha: 0.7)
-                    : AppColors.specBackground,
+                    ? AppTheme.c.specBackground.withValues(alpha: 0.7)
+                    : AppTheme.c.specBackground,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: widget.isDone
-                      ? AppColors.border.withValues(alpha: 0.6)
-                      : AppColors.border,
-                  width: 1,
+                      ? AppTheme.c.border.withValues(alpha: 0.6)
+                      : (widget.isAtRisk
+                          ? AppTheme.c.warning.withValues(alpha: 0.55)
+                          : AppTheme.c.border),
+                  width: widget.isAtRisk && !widget.isDone ? 1.3 : 1,
                 ),
               ),
               child: Row(
@@ -96,7 +100,9 @@ class _HabitRowCardState extends State<HabitRowCard> {
                           duration: AppProps.fast,
                           curve: Curves.easeInOut,
                           style: AppText.h3b.cl(
-                            widget.isDone ? AppColors.subText : AppColors.text,
+                            widget.isDone
+                                ? AppTheme.c.subText
+                                : AppTheme.c.text,
                           ),
                           child: Text(
                             widget.habit.name,

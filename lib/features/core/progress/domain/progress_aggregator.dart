@@ -28,49 +28,6 @@ abstract class ProgressAggregator {
     return 4;
   }
 
-  /// Maps a running consecutive streak length ending on a day to intensity (0..4).
-  static int streakLengthToLevel(int streakDay) {
-    if (streakDay <= 0) return 0;
-    if (streakDay <= 2) return 1;
-    if (streakDay <= 6) return 2;
-    if (streakDay <= 13) return 3;
-    return 4;
-  }
-
-  /// Computes per-day streak-depth levels (0..4) for [habit] over [days] ending on [today].
-  static Map<String, int> computeHabitStreakDepthLevels({
-    required Set<String> completedDayKeys,
-    required DateTime startDay,
-    required DateTime today,
-  }) {
-    final levels = <String, int>{};
-    var run = 0;
-
-    // Seed running streak from up to 14 days prior so day 1 starts at full depth.
-    for (var offset = 14; offset >= 1; offset--) {
-      final prior = DateTime(startDay.year, startDay.month, startDay.day - offset);
-      if (completedDayKeys.contains(DaySettings.dayKey(prior))) {
-        run += 1;
-      } else {
-        run = 0;
-      }
-    }
-
-    var cursor = startDay;
-    while (!cursor.isAfter(today)) {
-      final key = DaySettings.dayKey(cursor);
-      if (completedDayKeys.contains(key)) {
-        run += 1;
-        levels[key] = streakLengthToLevel(run);
-      } else {
-        run = 0;
-        levels[key] = 0;
-      }
-      cursor = DateTime(cursor.year, cursor.month, cursor.day + 1);
-    }
-    return levels;
-  }
-
   static ProgressSnapshot compute({
     required List<Habit> activeHabits,
     required List<Entry> entries,
@@ -171,12 +128,6 @@ abstract class ProgressAggregator {
       if (stats.best > bestHabitStreak) bestHabitStreak = stats.best;
       if (stats.current > 0) activeStreaksCount += 1;
 
-      final depthLevels = computeHabitStreakDepthLevels(
-        completedDayKeys: completedKeys,
-        startDay: startDay,
-        today: endDay,
-      );
-
       habitSummaries.add(HabitRangeSummary(
         habit: habit,
         completedDaysInRange: completedInRange,
@@ -184,7 +135,7 @@ abstract class ProgressAggregator {
         consistencyPercent: consistency,
         currentStreak: stats.current,
         bestStreak: stats.best,
-        streakDepthLevels: depthLevels,
+        completedDayKeys: Set<String>.unmodifiable(completedKeys),
       ));
     }
 

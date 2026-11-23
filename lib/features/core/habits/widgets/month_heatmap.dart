@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
 
 class MonthHeatmap extends StatelessWidget {
@@ -63,11 +62,9 @@ class MonthHeatmap extends StatelessWidget {
             final isToday = normalizedD.isAtSameMomentAs(normalizedToday);
 
             return GestureDetector(
-              onTap: () {
-                if (!isFuture) {
-                  _showConfirmDialog(context, day, done);
-                }
-              },
+              onTap: !isFuture && onToggleDay != null
+                  ? () => onToggleDay!(day)
+                  : null,
               behavior: HitTestBehavior.opaque,
               child: Container(
                 decoration: BoxDecoration(
@@ -104,41 +101,6 @@ class MonthHeatmap extends StatelessWidget {
     );
   }
 
-  void _showConfirmDialog(BuildContext context, DateTime day, bool done) {
-    final formatted = DateFormat('EEEE, MMM d').format(day);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.background,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          done ? 'Remove check-in?' : 'Log check-in?',
-          style: AppText.h3b.cl(AppColors.text),
-        ),
-        content: Text(
-          formatted,
-          style: AppText.b1.cl(AppColors.subText),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: AppText.b1.cl(AppColors.subText)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              onToggleDay?.call(day);
-            },
-            child: Text(
-              done ? 'Remove' : 'Confirm',
-              style: AppText.b1b.cl(done ? AppColors.error : AppColors.accent),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   List<String> _buildWeekdayHeaders() {
     if (weekStartsMonday) {
       return ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -148,8 +110,7 @@ class MonthHeatmap extends StatelessWidget {
 
   List<DateTime?> _buildMonthCells() {
     final firstDayOfMonth = DateTime(today.year, today.month, 1);
-    final nextMonthFirst = DateTime(today.year, today.month + 1, 1);
-    final daysInMonth = nextMonthFirst.subtract(const Duration(days: 1)).day;
+    final daysInMonth = DateTime(today.year, today.month + 1, 0).day;
 
     final firstWeekday = weekStartsMonday ? DateTime.monday : DateTime.sunday;
     final leading = (firstDayOfMonth.weekday - firstWeekday + 7) % 7;

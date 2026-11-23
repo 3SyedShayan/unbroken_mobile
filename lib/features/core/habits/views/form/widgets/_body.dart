@@ -131,6 +131,14 @@ class _BodyState extends State<_Body> {
                       ),
                       child: TextField(
                         controller: _nameController,
+                        maxLength: 100,
+                        buildCounter: (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) =>
+                            null,
                         style: AppText.b1b.cl(AppColors.text),
                         decoration: InputDecoration(
                           hintText: 'e.g. Read 20 pages',

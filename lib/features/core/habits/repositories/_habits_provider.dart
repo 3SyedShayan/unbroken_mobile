@@ -17,6 +17,10 @@ class _HabitsProvider {
 
   Stream<List<Map<String, dynamic>>> observeHabits(String uid) {
     return _userHabits(uid).snapshots().map((snapshot) {
+      SyncStatusTracker.ins.reportSnapshot(
+        isFromCache: snapshot.metadata.isFromCache,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+      );
       return snapshot.docs.map((doc) => _cleanDoc(doc.data())).toList();
     });
   }
@@ -30,31 +34,104 @@ class _HabitsProvider {
       query = query.where('logicalDayKey', isGreaterThanOrEqualTo: windowStartKey);
     }
     return query.snapshots().map((snapshot) {
+      SyncStatusTracker.ins.reportSnapshot(
+        isFromCache: snapshot.metadata.isFromCache,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+      );
       return snapshot.docs.map((doc) => _cleanDoc(doc.data())).toList();
     });
   }
 
-  Future<void> upsertHabit(String uid, Map<String, dynamic> raw) async {
+  Future<List<Map<String, dynamic>>> fetchEntriesRange(
+    String uid, {
+    required String startKey,
+    required String endKeyExclusive,
+    bool preferCache = false,
+  }) async {
+    try {
+      final query = _userEntries(uid)
+          .where('logicalDayKey', isGreaterThanOrEqualTo: startKey)
+          .where('logicalDayKey', isLessThan: endKeyExclusive);
+
+      QuerySnapshot<Map<String, dynamic>> snapshot;
+      if (preferCache) {
+        try {
+          snapshot = await query.get(const GetOptions(source: Source.cache));
+        } catch (_) {
+          snapshot = await query
+              .get(const GetOptions(source: Source.serverAndCache))
+              .timeout(FirebaseConfig.queryTimeout);
+        }
+      } else {
+        snapshot = await query
+            .get(const GetOptions(source: Source.serverAndCache))
+            .timeout(FirebaseConfig.queryTimeout);
+      }
+      return snapshot.docs.map((doc) => _cleanDoc(doc.data())).toList();
+    } catch (e, s) {
+      throw Fault.fromObjectAndStackTrace(e, s);
+    }
+  }
+
+  Future<void> upsertHabit(
+    String uid,
+    Map<String, dynamic> raw, {
+    bool isUpdate = false,
+    List<String>? appendHabitOrder,
+  }) async {
     try {
       final habitId = (raw['id'] as String).toLowerCase();
       final docRef = _userHabits(uid).doc(habitId);
 
       final payload = Map<String, dynamic>.from(raw);
-      payload['id'] = habitId;
+      final rawName = (payload['name'] as String? ?? '').trim();
+      payload['name'] = rawName.isEmpty
+          ? 'Habit'
+          : (rawName.length > 100 ? rawName.substring(0, 100) : rawName);
+      final rawEmoji = payload['emoji'] as String? ?? '';
+      payload['emoji'] =
+          rawEmoji.length > 16 ? rawEmoji.substring(0, 16) : rawEmoji;
+      payload['sortOrder'] =
+          ((payload['sortOrder'] as num?)?.toInt() ?? 0).clamp(0, 10000);
       payload['updatedAt'] = FieldValue.serverTimestamp();
-
-      if (payload['createdAt'] is String) {
-        payload['createdAt'] =
-            Timestamp.fromDate(DateTime.parse(payload['createdAt'] as String));
-      } else if (payload['createdAt'] == null) {
-        payload['createdAt'] = FieldValue.serverTimestamp();
-      }
 
       if (payload['lastCompletedDayKey'] == null) {
         payload.remove('lastCompletedDayKey');
       }
 
-      await docRef.set(payload, SetOptions(merge: true));
+      if (isUpdate) {
+        payload.remove('id');
+        payload.remove('createdAt');
+        await runOptimisticWrite(
+          () => docRef.update(payload),
+          tag: 'HABITS',
+        );
+      } else {
+        payload['id'] = habitId;
+        if (payload['createdAt'] is String) {
+          payload['createdAt'] = Timestamp.fromDate(
+            DateTime.parse(payload['createdAt'] as String),
+          );
+        } else if (payload['createdAt'] == null) {
+          payload['createdAt'] = FieldValue.serverTimestamp();
+        }
+
+        if (appendHabitOrder != null) {
+          final batch = _firestore.batch();
+          batch.set(docRef, payload, SetOptions(merge: false));
+          final userRef = _firestore.collection(Collections.users).doc(uid);
+          batch.update(userRef, {
+            'habitOrder': appendHabitOrder.map((e) => e.toLowerCase()).toList(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          await runOptimisticWrite(() => batch.commit(), tag: 'HABITS');
+        } else {
+          await runOptimisticWrite(
+            () => docRef.set(payload, SetOptions(merge: false)),
+            tag: 'HABITS',
+          );
+        }
+      }
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -62,25 +139,17 @@ class _HabitsProvider {
 
   Future<void> reorderHabits(
     String uid,
-    List<Map<String, dynamic>> habits,
     List<String> habitOrder,
   ) async {
     try {
-      final batch = _firestore.batch();
-      for (var i = 0; i < habits.length; i++) {
-        final habitId = (habits[i]['id'] as String).toLowerCase();
-        final docRef = _userHabits(uid).doc(habitId);
-        batch.update(docRef, {
-          'sortOrder': i,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
       final userRef = _firestore.collection(Collections.users).doc(uid);
-      batch.update(userRef, {
-        'habitOrder': habitOrder,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      await batch.commit();
+      await runOptimisticWrite(
+        () => userRef.update({
+          'habitOrder': habitOrder.map((id) => id.toLowerCase()).toList(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }),
+        tag: 'HABITS',
+      );
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -92,15 +161,16 @@ class _HabitsProvider {
       final habitRef = _userHabits(uid).doc(id);
 
       // Query entries belonging to this habit
-      final entriesSnap =
-          await _userEntries(uid).where('habitId', isEqualTo: id).get();
+      final entriesSnap = await _userEntries(uid)
+          .where('habitId', isEqualTo: id)
+          .get()
+          .timeout(FirebaseConfig.queryTimeout);
 
-      final batch = _firestore.batch();
-      batch.delete(habitRef);
-      for (final doc in entriesSnap.docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
+      final refs = <DocumentReference<Map<String, dynamic>>>[
+        habitRef,
+        ...entriesSnap.docs.map((doc) => doc.reference),
+      ];
+      await commitChunkedDeletes(_firestore, refs, tag: 'HABITS');
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -110,6 +180,7 @@ class _HabitsProvider {
     String uid, {
     required String habitId,
     required String logicalDayKey,
+    Map<String, dynamic>? habitStatsUpdate,
   }) async {
     try {
       final cleanHabitId = habitId.toLowerCase();
@@ -140,7 +211,19 @@ class _HabitsProvider {
         'timestamp': FieldValue.serverTimestamp(),
       };
 
-      await entryRef.set(payload, SetOptions(merge: false));
+      if (habitStatsUpdate != null && habitStatsUpdate.isNotEmpty) {
+        final batch = _firestore.batch();
+        batch.set(entryRef, payload, SetOptions(merge: false));
+        final habitUpdates = Map<String, dynamic>.from(habitStatsUpdate)
+          ..['updatedAt'] = FieldValue.serverTimestamp();
+        batch.update(_userHabits(uid).doc(cleanHabitId), habitUpdates);
+        await runOptimisticWrite(() => batch.commit(), tag: 'HABITS');
+      } else {
+        await runOptimisticWrite(
+          () => entryRef.set(payload, SetOptions(merge: false)),
+          tag: 'HABITS',
+        );
+      }
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -150,11 +233,23 @@ class _HabitsProvider {
     String uid, {
     required String habitId,
     required String logicalDayKey,
+    Map<String, dynamic>? habitStatsUpdate,
   }) async {
     try {
       final cleanHabitId = habitId.toLowerCase();
       final entryId = '${cleanHabitId}_$logicalDayKey';
-      await _userEntries(uid).doc(entryId).delete();
+      final entryRef = _userEntries(uid).doc(entryId);
+
+      if (habitStatsUpdate != null && habitStatsUpdate.isNotEmpty) {
+        final batch = _firestore.batch();
+        batch.delete(entryRef);
+        final habitUpdates = Map<String, dynamic>.from(habitStatsUpdate)
+          ..['updatedAt'] = FieldValue.serverTimestamp();
+        batch.update(_userHabits(uid).doc(cleanHabitId), habitUpdates);
+        await runOptimisticWrite(() => batch.commit(), tag: 'HABITS');
+      } else {
+        await runOptimisticWrite(() => entryRef.delete(), tag: 'HABITS');
+      }
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }

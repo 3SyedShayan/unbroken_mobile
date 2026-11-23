@@ -31,7 +31,7 @@ class MiniGrid extends StatelessWidget {
             width: cellSize,
             height: cellSize,
             decoration: BoxDecoration(
-              color: done[i] ? color : AppColors.emptyCell,
+              color: done[i] ? color : AppTheme.c.emptyCell,
               borderRadius: BorderRadius.circular(cellRadius),
               border: highlightToday && i == done.length - 1 && !done[i]
                   ? Border.all(

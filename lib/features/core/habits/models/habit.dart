@@ -71,8 +71,12 @@ abstract class Habit with _$Habit {
     final y = date.year.toString().padLeft(4, '0');
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');
-    final slug = slugify(name);
-    return 'h_$y$m${d}_$slug';
+    final rawSlug = slugify(name);
+    final slug = rawSlug.length > 25 ? rawSlug.substring(0, 25) : rawSlug;
+    final suffix = (date.microsecondsSinceEpoch % 1679616)
+        .toRadixString(36)
+        .padLeft(4, '0');
+    return 'h_$y$m${d}_${slug}_$suffix';
   }
 
   static String slugify(String text) {

@@ -18,22 +18,22 @@ class AddHabitButton extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.dashedBorder,
+            color: AppTheme.c.border,
             width: 1.5,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.add,
               size: 16,
-              color: AppColors.inkFainter,
+              color: AppTheme.c.subText,
             ),
             Space.x.t08,
             Text(
               'Add a habit',
-              style: AppText.b1b.cl(AppColors.inkFainter),
+              style: AppText.b1b.cl(AppTheme.c.subText),
             ),
           ],
         ),

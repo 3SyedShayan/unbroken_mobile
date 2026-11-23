@@ -54,7 +54,7 @@ class HabitRangeSummary {
   final int consistencyPercent;
   final int currentStreak;
   final int bestStreak;
-  final Map<String, int> streakDepthLevels;
+  final Set<String> completedDayKeys;
 
   const HabitRangeSummary({
     required this.habit,
@@ -63,7 +63,7 @@ class HabitRangeSummary {
     required this.consistencyPercent,
     required this.currentStreak,
     required this.bestStreak,
-    required this.streakDepthLevels,
+    required this.completedDayKeys,
   });
 }
 

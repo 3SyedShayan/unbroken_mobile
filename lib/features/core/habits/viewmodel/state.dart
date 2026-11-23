@@ -27,14 +27,22 @@ class HabitsState extends Equatable {
     );
   }
 
+  /// Returns true if [habit] has a check-in for the already-resolved logical
+  /// calendar [day] (no `dayEndHour` shift applied).
+  bool isCompletedForDay({
+    required Habit habit,
+    required DateTime day,
+  }) {
+    final dayKey = DaySettings.dayKey(day);
+    return entries.any((e) => e.habitId == habit.id && e.logicalDayKey == dayKey);
+  }
+
   bool isCompleted({
     required Habit habit,
     required DateTime asOf,
     required DaySettings settings,
-  }) {
-    final dayKey = settings.logicalDayKey(asOf);
-    return entries.any((e) => e.habitId == habit.id && e.logicalDayKey == dayKey);
-  }
+  }) =>
+      isCompletedForDay(habit: habit, day: settings.logicalDay(asOf));
 
   /// Returns completion flags for the last [days] logical days ending at
   /// [today], ordered from oldest (`today - (days - 1)`) to `today`.
@@ -78,11 +86,28 @@ class HabitsState extends Equatable {
     required DateTime asOf,
     required DaySettings settings,
   }) {
-    return StreakCalculator.stats(
+    final computed = StreakCalculator.stats(
       habit: habit,
       entries: entries,
       asOf: asOf,
       settings: settings,
+    );
+    final best = computed.best > habit.bestStreak ? computed.best : habit.bestStreak;
+    final today = settings.logicalDay(asOf);
+    final todayKey = DaySettings.dayKey(today);
+    final yesterdayKey = DaySettings.dayKey(
+      DateTime(today.year, today.month, today.day - 1),
+    );
+    final isStillActive = computed.current > 0 &&
+        (habit.lastCompletedDayKey == todayKey ||
+            habit.lastCompletedDayKey == yesterdayKey);
+    final current = (isStillActive && habit.currentStreak > computed.current)
+        ? habit.currentStreak
+        : computed.current;
+    return StreakStats(
+      current: current,
+      best: best,
+      lastCompletedDay: computed.lastCompletedDay,
     );
   }
 

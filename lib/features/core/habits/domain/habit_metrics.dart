@@ -16,15 +16,48 @@ class HabitMetrics {
     required this.entries,
     required this.settings,
     required this.now,
-  }) : stats = StreakCalculator.stats(
+  }) : stats = _resolveStats(
           habit: habit,
           entries: entries,
-          asOf: now,
           settings: settings,
+          now: now,
         );
 
+  static StreakStats _resolveStats({
+    required Habit habit,
+    required List<Entry> entries,
+    required DaySettings settings,
+    required DateTime now,
+  }) {
+    final computed = StreakCalculator.stats(
+      habit: habit,
+      entries: entries,
+      asOf: now,
+      settings: settings,
+    );
+    final best =
+        computed.best > habit.bestStreak ? computed.best : habit.bestStreak;
+    final today = settings.logicalDay(now);
+    final todayKey = DaySettings.dayKey(today);
+    final yesterdayKey = DaySettings.dayKey(
+      DateTime(today.year, today.month, today.day - 1),
+    );
+    final isStillActive = computed.current > 0 &&
+        (habit.lastCompletedDayKey == todayKey ||
+            habit.lastCompletedDayKey == yesterdayKey);
+    final current = (isStillActive && habit.currentStreak > computed.current)
+        ? habit.currentStreak
+        : computed.current;
+    return StreakStats(
+      current: current,
+      best: best,
+      lastCompletedDay: computed.lastCompletedDay,
+    );
+  }
+
   int get totalDays {
-    return entries.where((e) => e.habitId == habit.id).length;
+    final loadedCount = entries.where((e) => e.habitId == habit.id).length;
+    return loadedCount > habit.totalCheckIns ? loadedCount : habit.totalCheckIns;
   }
 
   int get consistency {
