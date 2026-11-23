@@ -8,19 +8,13 @@ class _SettingsProvider {
 
   Stream<Map<String, dynamic>?> observeSettings(String uid) {
     return _userDoc(uid).snapshots().map((snapshot) {
+      SyncStatusTracker.ins.reportSnapshot(
+        isFromCache: snapshot.metadata.isFromCache,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+      );
       if (!snapshot.exists || snapshot.data() == null) return null;
       return _cleanDoc(snapshot.data()!);
     });
-  }
-
-  Future<Map<String, dynamic>?> getSettings(String uid) async {
-    try {
-      final snapshot = await _userDoc(uid).get();
-      if (!snapshot.exists || snapshot.data() == null) return null;
-      return _cleanDoc(snapshot.data()!);
-    } catch (e, s) {
-      throw Fault.fromObjectAndStackTrace(e, s);
-    }
   }
 
   Future<void> updateSettings(String uid, Map<String, dynamic> raw) async {
@@ -46,7 +40,10 @@ class _SettingsProvider {
       payload['schemaVersion'] = 1;
       payload['updatedAt'] = FieldValue.serverTimestamp();
 
-      await _userDoc(uid).set(payload, SetOptions(merge: true));
+      await runOptimisticWrite(
+        () => _userDoc(uid).set(payload, SetOptions(merge: true)),
+        tag: 'SETTINGS',
+      );
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -135,8 +132,22 @@ class _SettingsProvider {
   Future<void> clearLocalPreferences() async {
     try {
       final sp = await SharedPreferences.getInstance();
-      await sp.remove('hasOnboarded');
-      await sp.remove('didCheckInOnce');
+      const userScopedKeys = [
+        'hasOnboarded',
+        'didCheckInOnce',
+        'sinkCompletedHabits',
+        'rolloverTasks',
+        'streakSounds',
+        'reminders',
+        'morningReminderEnabled',
+        'morningReminderTime',
+        'nightReminderEnabled',
+        'nightReminderTime',
+        'progressRange',
+      ];
+      for (final key in userScopedKeys) {
+        await sp.remove(key);
+      }
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }

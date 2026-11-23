@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unbroken_mobile/services/fault/faults.dart';
 import 'package:unbroken_mobile/services/firebase/collections.dart';
+import 'package:unbroken_mobile/services/firebase/firestore_write_helper.dart';
+import 'package:unbroken_mobile/services/firebase/sync_status_tracker.dart';
 
 part '_settings_provider.dart';
 
@@ -23,9 +25,6 @@ class SettingsRepo {
 
   Stream<Map<String, dynamic>?> observeSettings(String uid) =>
       _provider.observeSettings(uid);
-
-  Future<Map<String, dynamic>?> getSettings(String uid) =>
-      _provider.getSettings(uid);
 
   Future<void> updateSettings(String uid, Map<String, dynamic> settingsData) =>
       _provider.updateSettings(uid, settingsData);

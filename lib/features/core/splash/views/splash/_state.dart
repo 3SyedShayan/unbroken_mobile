@@ -14,15 +14,14 @@ class _ScreenState extends ChangeNotifier {
     final authCubit = AuthCubit.c(context);
     final habitsCubit = HabitsCubit.c(context);
     final focusCubit = FocusCubit.c(context);
-    final goalsCubit = GoalsCubit.c(context);
     final settingsCubit = SettingsCubit.c(context);
     final user = authCubit.state.user;
 
     if (user != null) {
-      // Start observing user streams concurrently with splash animation
+      // Start observing user streams concurrently with splash animation.
+      // GoalsCubit starts lazily when the user opens the Goals or Progress tab.
       habitsCubit.startObserving(user.uid);
       focusCubit.startObserving(user.uid);
-      goalsCubit.startObserving(user.uid);
       final settingsFuture = settingsCubit.startObserving(user.uid);
 
       await Future.wait([

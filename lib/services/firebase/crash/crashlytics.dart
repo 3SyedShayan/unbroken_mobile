@@ -45,7 +45,7 @@ class EnhancedCrashlytics {
       }
 
       final crashlytics = FirebaseCrashlytics.instance;
-      await crashlytics.setCrashlyticsCollectionEnabled(true);
+      await crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
       _firebaseCrashlytics = crashlytics;
 
       await _setAppVersionInfo();
@@ -283,6 +283,12 @@ class EnhancedCrashlytics {
         await _crashlytics?.setUserIdentifier(userId);
       } catch (_) {}
     }
+  }
+
+  Future<void> clearUserContext() async {
+    try {
+      await _crashlytics?.setUserIdentifier('');
+    } catch (_) {}
   }
 
   /// --- ONLY FOR TESTING --- ///

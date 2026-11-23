@@ -26,7 +26,6 @@ class _Body extends StatelessWidget {
                 final uid = state.user!.uid;
                 HabitsCubit.c(context).startObserving(uid);
                 FocusCubit.c(context).startObserving(uid);
-                GoalsCubit.c(context).startObserving(uid);
                 await SettingsCubit.c(context).startObserving(uid);
 
                 if (!context.mounted) return;

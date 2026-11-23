@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:unbroken_mobile/configs/configs.dart';
 import 'package:unbroken_mobile/features/core/auth/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/focus/viewmodel/cubit.dart';
-import 'package:unbroken_mobile/features/core/goals/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/habits/viewmodel/cubit.dart';
 import 'package:unbroken_mobile/features/core/habits/widgets/flame_hero.dart';
 import 'package:unbroken_mobile/features/support/settings/viewmodel/cubit.dart';

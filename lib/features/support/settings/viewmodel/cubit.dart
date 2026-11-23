@@ -7,6 +7,8 @@ import 'package:unbroken_mobile/configs/configs.dart';
 import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/features/support/settings/models/day_settings.dart';
 import 'package:unbroken_mobile/features/support/settings/repositories/settings_repo.dart';
+import 'package:unbroken_mobile/services/firebase/sync_status_tracker.dart';
+import 'package:unbroken_mobile/services/logging/app_log.dart';
 import 'package:unbroken_mobile/services/notifications/local_notification_service.dart';
 
 part 'state.dart';
@@ -32,19 +34,23 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> _clearOnSignOut() async {
-    _sub?.cancel();
+    await _sub?.cancel();
     _sub = null;
     _currentUid = null;
     _loadLocalFuture = null;
-    emit(SettingsState(
-      settings: const DaySettings(),
-      fetch: BlocState<DaySettings>(),
-      update: BlocState<void>(),
-    ));
+    if (!isClosed) {
+      emit(SettingsState(
+        settings: const DaySettings(),
+        fetch: BlocState<DaySettings>(),
+        update: BlocState<void>(),
+      ));
+    }
     try {
       await _repo.clearLocalPreferences();
     } catch (_) {}
-    loadLocal();
+    if (!isClosed) {
+      await loadLocal();
+    }
   }
 
   Future<DaySettings> loadLocal() {
@@ -82,57 +88,96 @@ class SettingsCubit extends Cubit<SettingsState> {
     await loadLocal();
     if (_currentUid == uid && _sub != null) return state.settings;
     _currentUid = uid;
-    _sub?.cancel();
+    await _sub?.cancel();
 
-    _sub = _repo.observeSettings(uid).listen((remoteData) {
-      if (remoteData != null) {
-        final parsed = DaySettings.fromJson(remoteData);
-        emit(state.copyWith(
-          settings: state.settings.copyWith(
+    final firstSnapshot = Completer<DaySettings>();
+
+    _sub = _repo.observeSettings(uid).listen(
+      (remoteData) {
+        if (remoteData != null) {
+          final parsed = DaySettings.fromJson(remoteData);
+          final updated = state.settings.copyWith(
             dayEndHour: parsed.dayEndHour,
             atRiskWindowHours: parsed.atRiskWindowHours,
             habitOrder: parsed.habitOrder,
             weekStartMonday: parsed.weekStartMonday,
             hasOnboarded: parsed.hasOnboarded,
             didCheckInOnce: parsed.didCheckInOnce,
-          ),
-          fetch: state.fetch.toSuccess(data: parsed),
-        ));
-        _repo.updateLocalPreferences({
-          'hasOnboarded': parsed.hasOnboarded,
-          'didCheckInOnce': parsed.didCheckInOnce,
-        });
-      }
-    });
-
-    try {
-      final raw = await _repo.getSettings(uid).timeout(
-        const Duration(seconds: 2),
-        onTimeout: () => null,
-      );
-      if (raw != null) {
-        final parsed = DaySettings.fromJson(raw);
-        final updated = state.settings.copyWith(
-          dayEndHour: parsed.dayEndHour,
-          atRiskWindowHours: parsed.atRiskWindowHours,
-          habitOrder: parsed.habitOrder,
-          weekStartMonday: parsed.weekStartMonday,
-          hasOnboarded: parsed.hasOnboarded,
-          didCheckInOnce: parsed.didCheckInOnce,
+          );
+          if (!isClosed) {
+            emit(state.copyWith(
+              settings: updated,
+              fetch: state.fetch.toSuccess(data: parsed),
+            ));
+          }
+          unawaited(
+            _repo.updateLocalPreferences({
+              'hasOnboarded': parsed.hasOnboarded,
+              'didCheckInOnce': parsed.didCheckInOnce,
+            }),
+          );
+          if (!firstSnapshot.isCompleted) {
+            firstSnapshot.complete(updated);
+          }
+        } else if (!firstSnapshot.isCompleted) {
+          firstSnapshot.complete(state.settings);
+        }
+      },
+      onError: (Object e, StackTrace s) {
+        'Error in observeSettings: $e'.appLog(
+          tag: 'SETTINGS',
+          level: AppLogLevel.error,
+          error: e,
+          stackTrace: s,
         );
-        emit(state.copyWith(
-          settings: updated,
-          fetch: state.fetch.toSuccess(data: parsed),
-        ));
-        await _repo.updateLocalPreferences({
-          'hasOnboarded': parsed.hasOnboarded,
-          'didCheckInOnce': parsed.didCheckInOnce,
-        });
-        return updated;
-      }
-    } catch (_) {}
+        SyncStatusTracker.ins.reportError();
+        if (!firstSnapshot.isCompleted) {
+          firstSnapshot.complete(state.settings);
+        }
+      },
+      onDone: () {
+        if (!firstSnapshot.isCompleted) {
+          firstSnapshot.complete(state.settings);
+        }
+      },
+    );
 
-    return state.settings;
+    return firstSnapshot.future.timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => state.settings,
+    );
+  }
+
+  Future<void> _updateLocalOnlySettings(
+    DaySettings newSettings, {
+    bool syncNotifications = false,
+  }) async {
+    await loadLocal();
+    if (isClosed) return;
+    emit(state.copyWith(settings: newSettings));
+    try {
+      await _repo.updateLocalPreferences({
+        'sinkCompletedHabits': newSettings.sinkCompletedHabits,
+        'rolloverTasks': newSettings.rolloverTasks,
+        'streakSounds': newSettings.streakSounds,
+        'reminders': newSettings.reminders,
+        'morningReminderEnabled': newSettings.morningReminderEnabled,
+        'morningReminderTime': newSettings.morningReminderTime,
+        'nightReminderEnabled': newSettings.nightReminderEnabled,
+        'nightReminderTime': newSettings.nightReminderTime,
+        'progressRange': newSettings.progressRange,
+      });
+      if (syncNotifications) {
+        await _syncNotifications(newSettings);
+      }
+    } catch (e, s) {
+      'Failed to persist local preferences: $e'.appLog(
+        tag: 'SETTINGS',
+        level: AppLogLevel.error,
+        error: e,
+        stackTrace: s,
+      );
+    }
   }
 
   Future<void> updateDaySettings(DaySettings newSettings, [String? uid]) async {
@@ -188,47 +233,51 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> toggleSinkCompletedHabits(bool val) async {
     final updated = state.settings.copyWith(sinkCompletedHabits: val);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated);
   }
 
   Future<void> toggleRolloverTasks(bool val) async {
     final updated = state.settings.copyWith(rolloverTasks: val);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated);
   }
 
   Future<void> toggleStreakSounds(bool val) async {
     final updated = state.settings.copyWith(streakSounds: val);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated);
   }
 
   Future<void> toggleReminders(bool val) async {
     final updated = state.settings.copyWith(reminders: val);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated, syncNotifications: true);
   }
 
   Future<void> toggleMorningReminder(bool val) async {
     final updated = state.settings.copyWith(morningReminderEnabled: val);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated, syncNotifications: true);
   }
 
   Future<void> setMorningReminderTime(String timeStr) async {
     final updated = state.settings.copyWith(morningReminderTime: timeStr);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated, syncNotifications: true);
   }
 
   Future<void> toggleNightReminder(bool val) async {
     final updated = state.settings.copyWith(nightReminderEnabled: val);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated, syncNotifications: true);
   }
 
   Future<void> setNightReminderTime(String timeStr) async {
     final updated = state.settings.copyWith(nightReminderTime: timeStr);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated, syncNotifications: true);
   }
 
   Future<void> setProgressRange(String rangeKey) async {
     final updated = state.settings.copyWith(progressRange: rangeKey);
-    await updateDaySettings(updated);
+    await _updateLocalOnlySettings(updated);
+  }
+
+  void updateHabitOrderLocally(List<String> order) {
+    emit(state.copyWith(settings: state.settings.copyWith(habitOrder: order)));
   }
 
   Future<void> _syncNotifications(DaySettings settings) async {
@@ -269,7 +318,7 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   @override
   Future<void> close() {
-    _sub?.cancel();
+    unawaited(_sub?.cancel());
     return super.close();
   }
 }

@@ -7,6 +7,8 @@ import 'package:unbroken_mobile/configs/configs.dart';
 import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/features/core/auth/models/auth_user.dart';
 import 'package:unbroken_mobile/features/core/auth/repositories/auth_repo.dart';
+import 'package:unbroken_mobile/services/firebase/crash/crashlytics.dart';
+import 'package:unbroken_mobile/services/firebase/sync_status_tracker.dart';
 
 part 'state.dart';
 
@@ -16,6 +18,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   final AuthRepo _repo;
   StreamSubscription<Map<String, dynamic>?>? _sub;
+  StreamSubscription<FirestoreSyncStatus>? _syncSub;
 
   AuthCubit({AuthRepo? repo})
       : _repo = repo ?? AuthRepo.ins,
@@ -26,21 +29,37 @@ class AuthCubit extends Cubit<AuthState> {
     _init();
   }
 
+  SyncState _mapSyncStatus(FirestoreSyncStatus status) => switch (status) {
+        FirestoreSyncStatus.connecting => SyncState.connecting,
+        FirestoreSyncStatus.synced => SyncState.synced,
+        FirestoreSyncStatus.offline => SyncState.offline,
+      };
+
   void _init() {
+    _syncSub = SyncStatusTracker.ins.stream.listen((status) {
+      if (!isClosed && state.user != null) {
+        emit(state.copyWith(syncState: _mapSyncStatus(status)));
+      }
+    });
+
     final current = _repo.currentUser;
     if (current != null) {
+      final user = AuthUser.fromJson(current);
       emit(state.copyWith(
-        user: AuthUser.fromJson(current),
-        syncState: SyncState.synced,
+        user: user,
+        syncState: _mapSyncStatus(SyncStatusTracker.ins.current),
       ));
+      unawaited(EnhancedCrashlytics.ins.setUserContext(userId: user.uid));
     }
 
     _sub = _repo.authStateChanges().listen((userData) {
       if (userData != null) {
+        final user = AuthUser.fromJson(userData);
         emit(state.copyWith(
-          user: AuthUser.fromJson(userData),
-          syncState: SyncState.synced,
+          user: user,
+          syncState: _mapSyncStatus(SyncStatusTracker.ins.current),
         ));
+        unawaited(EnhancedCrashlytics.ins.setUserContext(userId: user.uid));
       } else {
         emit(state.copyWith(
           clearUser: true,
@@ -55,9 +74,10 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final raw = await _repo.signInWithGoogle();
       final user = AuthUser.fromJson(raw);
+      unawaited(EnhancedCrashlytics.ins.setUserContext(userId: user.uid));
       emit(state.copyWith(
         user: user,
-        syncState: SyncState.synced,
+        syncState: _mapSyncStatus(SyncStatusTracker.ins.current),
         login: state.login.toSuccess(data: user),
       ));
     } on Fault catch (f) {
@@ -74,8 +94,11 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> signOut() async {
     emit(state.copyWith(signOut: state.signOut.toLoading()));
     try {
+      await SignOutCleanupRegistry.ins.runPreSignOut();
       await _repo.signOut();
-      SignOutCleanupRegistry.ins.runAll();
+      await SignOutCleanupRegistry.ins.runPostSignOut();
+      SyncStatusTracker.ins.reset();
+      unawaited(EnhancedCrashlytics.ins.clearUserContext());
       emit(state.copyWith(
         clearUser: true,
         syncState: SyncState.offline,
@@ -98,7 +121,8 @@ class AuthCubit extends Cubit<AuthState> {
 
   @override
   Future<void> close() {
-    _sub?.cancel();
+    unawaited(_sub?.cancel());
+    unawaited(_syncSub?.cancel());
     return super.close();
   }
 }

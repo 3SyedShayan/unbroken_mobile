@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 /// Registers callbacks to run on sign-out so authentication stays decoupled
@@ -11,18 +13,48 @@ class SignOutCleanupRegistry {
   @visibleForTesting
   SignOutCleanupRegistry.forTesting();
 
-  final List<void Function()> _handlers = [];
+  final List<FutureOr<void> Function()> _preHandlers = [];
+  final List<FutureOr<void> Function()> _postHandlers = [];
 
-  void register(void Function() onSignedOut) {
-    _handlers.add(onSignedOut);
+  /// Registers a Phase 1 callback invoked BEFORE `FirebaseAuth.signOut()`.
+  ///
+  /// Use for cancelling active Firestore listeners and resetting Cubit state.
+  void register(FutureOr<void> Function() onPreSignOut) {
+    _preHandlers.add(onPreSignOut);
   }
 
-  void runAll() {
-    for (final h in List<void Function()>.from(_handlers)) {
+  /// Registers a Phase 2 callback invoked AFTER listeners stop and Auth signs out.
+  ///
+  /// Use for terminating Firestore and purging persistent disk caches.
+  void registerPostSignOut(FutureOr<void> Function() onPostSignOut) {
+    _postHandlers.add(onPostSignOut);
+  }
+
+  Future<void> runPreSignOut() async {
+    for (final h in List<FutureOr<void> Function()>.from(_preHandlers)) {
       try {
-        h();
+        final result = h();
+        if (result is Future) {
+          await result;
+        }
       } catch (_) {}
     }
+  }
+
+  Future<void> runPostSignOut() async {
+    for (final h in List<FutureOr<void> Function()>.from(_postHandlers)) {
+      try {
+        final result = h();
+        if (result is Future) {
+          await result;
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<void> runAll() async {
+    await runPreSignOut();
+    await runPostSignOut();
   }
 }
 

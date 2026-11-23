@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unbroken_mobile/services/cache/ttl_cache.dart';
+import 'package:unbroken_mobile/services/firebase/firebase_config.dart';
 
 /// Centralized Cache & Sync Coordinator for Unbroken Mobile.
 ///
@@ -85,11 +86,18 @@ class CacheService {
       }
     } catch (_) {}
 
-    // 3. Purge Tier 3 disk persistence if available
+    // 3. Terminate and purge Tier 3 disk persistence so subsequent accounts start clean
+    try {
+      await FirebaseFirestore.instance.terminate();
+    } catch (_) {}
     try {
       await FirebaseFirestore.instance.clearPersistence();
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: FirebaseConfig.maxCacheSizeBytes,
+      );
     } catch (_) {
-      // clearPersistence() may throw if queries are still active or unsupported in mock mode; ignore quietly.
+      // clearPersistence() may throw if unsupported in mock mode; ignore quietly.
     }
   }
 }

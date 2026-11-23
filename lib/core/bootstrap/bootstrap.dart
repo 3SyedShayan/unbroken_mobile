@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,6 +15,7 @@ import 'package:unbroken_mobile/core/lifecycle/sign_out_cleanup_registry.dart';
 import 'package:unbroken_mobile/firebase_options.dart';
 import 'package:unbroken_mobile/services/cache/cache_service.dart';
 import 'package:unbroken_mobile/services/firebase/crash/crashlytics.dart';
+import 'package:unbroken_mobile/services/firebase/firebase_config.dart';
 import 'package:unbroken_mobile/services/logging/app_bloc_observer.dart';
 import 'package:unbroken_mobile/services/notifications/local_notification_service.dart';
 
@@ -31,26 +34,32 @@ Future<void> bootstrap([String? rawFlavor]) async {
   // 2. Initialize immutable environment
   Env.init(AppEnv(flavor: flavor));
 
-  // 3. Initialize Firebase with offline persistent cache & Crashlytics
+  // 3. Initialize Firebase with bounded offline persistent cache, App Check & Crashlytics
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
+    await FirebaseAppCheck.instance.activate(
+      appleProvider: kDebugMode
+          ? AppleProvider.debug
+          : AppleProvider.appAttestWithDeviceCheckFallback,
+      androidProvider: kDebugMode
+          ? AndroidProvider.debug
+          : AndroidProvider.playIntegrity,
+    );
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      cacheSizeBytes: FirebaseConfig.maxCacheSizeBytes,
     );
     await EnhancedCrashlytics.ins.init();
   } catch (e) {
     debugPrint('[FirebaseBootstrap] Initialization notice: $e');
   }
 
-  // 4. Register cache purge on user sign-out
-  SignOutCleanupRegistry.ins.register(() {
-    unawaited(CacheService.ins.clearAll());
-  });
+  // 4. Register post-sign-out cache purge (after listeners close & Auth signs out)
+  SignOutCleanupRegistry.ins.registerPostSignOut(() => CacheService.ins.clearAll());
 
   // 5. Initialize Typography
   AppText.init();
