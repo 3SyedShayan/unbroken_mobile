@@ -40,6 +40,16 @@ class GoalsState extends Equatable {
     return list;
   }
 
+  List<GoalFolder> get archivedFolders {
+    final list = folders.where((f) => f.isArchived).toList();
+    list.sort((a, b) {
+      final bTime = b.updatedAt ?? b.createdAt ?? DateTime(2000);
+      final aTime = a.updatedAt ?? a.createdAt ?? DateTime(2000);
+      return bTime.compareTo(aTime);
+    });
+    return list;
+  }
+
   GoalFolder? get selectedFolder {
     if (selectedFolderId != null) {
       for (final f in folders) {
@@ -65,6 +75,12 @@ class GoalsState extends Equatable {
     });
     return list;
   }
+
+  List<Goal> activeGoalsForFolder(String folderId) =>
+      goalsForFolder(folderId).where((g) => !g.isCompleted).toList();
+
+  List<Goal> completedGoalsForFolder(String folderId) =>
+      goalsForFolder(folderId).where((g) => g.isCompleted).toList();
 
   ({int completed, int total}) folderProgress(String folderId) {
     final items = goals.where((g) => g.folderId == folderId).toList();

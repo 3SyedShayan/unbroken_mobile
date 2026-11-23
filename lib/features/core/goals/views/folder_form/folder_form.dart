@@ -7,6 +7,7 @@ import 'package:unbroken_mobile/shared/widgets/core/buttons/button.dart';
 import 'package:unbroken_mobile/shared/widgets/core/screen/screen.dart';
 
 part 'widgets/_body.dart';
+part 'widgets/_pickers.dart';
 
 class FolderFormScreen extends StatelessWidget {
   final GoalFolder? folder;

@@ -17,6 +17,10 @@ class _GoalsProvider {
 
   Stream<List<Map<String, dynamic>>> observeFolders(String uid) {
     return _userGoalFolders(uid).snapshots().map((snapshot) {
+      SyncStatusTracker.ins.reportSnapshot(
+        isFromCache: snapshot.metadata.isFromCache,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+      );
       return snapshot.docs.map((doc) => _cleanDoc(doc.data())).toList();
     });
   }
@@ -30,27 +34,60 @@ class _GoalsProvider {
       query = query.where('folderId', isEqualTo: folderId);
     }
     return query.snapshots().map((snapshot) {
+      SyncStatusTracker.ins.reportSnapshot(
+        isFromCache: snapshot.metadata.isFromCache,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+      );
       return snapshot.docs.map((doc) => _cleanDoc(doc.data())).toList();
     });
   }
 
-  Future<void> upsertFolder(String uid, Map<String, dynamic> raw) async {
+  Future<void> upsertFolder(
+    String uid,
+    Map<String, dynamic> raw, {
+    bool isUpdate = false,
+  }) async {
     try {
       final folderId = raw['id'] as String;
       final docRef = _userGoalFolders(uid).doc(folderId);
 
       final payload = Map<String, dynamic>.from(raw);
-      payload['id'] = folderId;
+      final rawName = (payload['name'] as String? ?? '').trim();
+      payload['name'] = rawName.isEmpty
+          ? 'Folder'
+          : (rawName.length > 80 ? rawName.substring(0, 80) : rawName);
+      final rawEmoji = payload['emoji'] as String? ?? '';
+      payload['emoji'] =
+          rawEmoji.length > 16 ? rawEmoji.substring(0, 16) : rawEmoji;
+      payload['sortOrder'] =
+          ((payload['sortOrder'] as num?)?.toInt() ?? 0).clamp(0, 10000);
+      final rawPeriod = payload['periodKey'] as String?;
+      if (rawPeriod != null && rawPeriod.length > 32) {
+        payload['periodKey'] = rawPeriod.substring(0, 32);
+      }
       payload['updatedAt'] = FieldValue.serverTimestamp();
 
-      if (payload['createdAt'] is String) {
-        payload['createdAt'] =
-            Timestamp.fromDate(DateTime.parse(payload['createdAt'] as String));
-      } else if (payload['createdAt'] == null) {
-        payload['createdAt'] = FieldValue.serverTimestamp();
+      if (isUpdate) {
+        payload.remove('id');
+        payload.remove('createdAt');
+        await runOptimisticWrite(
+          () => docRef.update(payload),
+          tag: 'GOALS',
+        );
+      } else {
+        payload['id'] = folderId;
+        if (payload['createdAt'] is String) {
+          payload['createdAt'] = Timestamp.fromDate(
+            DateTime.parse(payload['createdAt'] as String),
+          );
+        } else if (payload['createdAt'] == null) {
+          payload['createdAt'] = FieldValue.serverTimestamp();
+        }
+        await runOptimisticWrite(
+          () => docRef.set(payload, SetOptions(merge: false)),
+          tag: 'GOALS',
+        );
       }
-
-      await docRef.set(payload, SetOptions(merge: true));
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -59,42 +96,70 @@ class _GoalsProvider {
   Future<void> deleteFolder(String uid, String folderId) async {
     try {
       final folderRef = _userGoalFolders(uid).doc(folderId);
-      final goalsSnap =
-          await _userGoals(uid).where('folderId', isEqualTo: folderId).get();
+      final goalsSnap = await _userGoals(uid)
+          .where('folderId', isEqualTo: folderId)
+          .get()
+          .timeout(FirebaseConfig.queryTimeout);
 
-      final batch = _firestore.batch();
-      batch.delete(folderRef);
-      for (final doc in goalsSnap.docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
+      final refs = <DocumentReference<Map<String, dynamic>>>[
+        folderRef,
+        ...goalsSnap.docs.map((doc) => doc.reference),
+      ];
+      await commitChunkedDeletes(_firestore, refs, tag: 'GOALS');
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
   }
 
-  Future<void> upsertGoal(String uid, Map<String, dynamic> raw) async {
+  Future<void> upsertGoal(
+    String uid,
+    Map<String, dynamic> raw, {
+    bool isUpdate = false,
+  }) async {
     try {
       final goalId = raw['id'] as String;
       final docRef = _userGoals(uid).doc(goalId);
 
       final payload = Map<String, dynamic>.from(raw);
-      payload['id'] = goalId;
-      payload['updatedAt'] = FieldValue.serverTimestamp();
-
-      if (payload['createdAt'] is String) {
-        payload['createdAt'] =
-            Timestamp.fromDate(DateTime.parse(payload['createdAt'] as String));
-      } else if (payload['createdAt'] == null) {
-        payload['createdAt'] = FieldValue.serverTimestamp();
+      final rawTitle = (payload['title'] as String? ?? '').trim();
+      payload['title'] = rawTitle.isEmpty
+          ? 'Goal'
+          : (rawTitle.length > 200 ? rawTitle.substring(0, 200) : rawTitle);
+      final rawNotes = payload['notes'] as String?;
+      if (rawNotes != null && rawNotes.length > 1000) {
+        payload['notes'] = rawNotes.substring(0, 1000);
       }
+      payload['sortOrder'] =
+          ((payload['sortOrder'] as num?)?.toInt() ?? 0).clamp(0, 10000);
+      payload['updatedAt'] = FieldValue.serverTimestamp();
 
       if (payload['completedAt'] is String) {
         payload['completedAt'] =
             Timestamp.fromDate(DateTime.parse(payload['completedAt'] as String));
       }
 
-      await docRef.set(payload, SetOptions(merge: true));
+      if (isUpdate) {
+        payload.remove('id');
+        payload.remove('createdAt');
+        payload.remove('folderId');
+        await runOptimisticWrite(
+          () => docRef.update(payload),
+          tag: 'GOALS',
+        );
+      } else {
+        payload['id'] = goalId;
+        if (payload['createdAt'] is String) {
+          payload['createdAt'] = Timestamp.fromDate(
+            DateTime.parse(payload['createdAt'] as String),
+          );
+        } else if (payload['createdAt'] == null) {
+          payload['createdAt'] = FieldValue.serverTimestamp();
+        }
+        await runOptimisticWrite(
+          () => docRef.set(payload, SetOptions(merge: false)),
+          tag: 'GOALS',
+        );
+      }
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -102,7 +167,10 @@ class _GoalsProvider {
 
   Future<void> deleteGoal(String uid, String goalId) async {
     try {
-      await _userGoals(uid).doc(goalId).delete();
+      await runOptimisticWrite(
+        () => _userGoals(uid).doc(goalId).delete(),
+        tag: 'GOALS',
+      );
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }

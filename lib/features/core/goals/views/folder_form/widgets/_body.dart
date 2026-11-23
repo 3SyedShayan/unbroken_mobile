@@ -39,10 +39,11 @@ class _BodyState extends State<_Body> {
   bool get _isEdit => widget.folder != null;
 
   void _onCadenceSelected(GoalCadence cadence) {
+    final previousLabel = _cadence.label;
     setState(() {
       _cadence = cadence;
       if (_nameController.text.trim().isEmpty ||
-          _nameController.text == _cadence.label) {
+          _nameController.text.trim() == previousLabel) {
         _nameController.text = cadence.label;
       }
       _emoji = cadence.defaultEmoji;
@@ -72,24 +73,30 @@ class _BodyState extends State<_Body> {
     Navigator.pop(context);
   }
 
+  void _archive() {
+    if (widget.folder == null) return;
+    GoalsCubit.c(context).archiveFolder(widget.folder!);
+    Navigator.pop(context);
+  }
+
   void _confirmDelete() {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppTheme.c.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Delete "${widget.folder?.name}"?',
-          style: AppText.h3b.cl(AppColors.text),
+          style: AppText.h3b.cl(AppTheme.c.text),
         ),
         content: Text(
           'This will delete the folder and all goals inside it. This action cannot be undone.',
-          style: AppText.b1.cl(AppColors.subText),
+          style: AppText.b1.cl(AppTheme.c.subText),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: AppText.b1.cl(AppColors.subText)),
+            child: Text('Cancel', style: AppText.b1.cl(AppTheme.c.subText)),
           ),
           TextButton(
             onPressed: () {
@@ -97,7 +104,7 @@ class _BodyState extends State<_Body> {
               GoalsCubit.c(context).deleteFolder(widget.folder!.id);
               Navigator.pop(context);
             },
-            child: Text('Delete', style: AppText.b1b.cl(AppColors.error)),
+            child: Text('Delete', style: AppText.b1b.cl(AppTheme.c.error)),
           ),
         ],
       ),
@@ -110,6 +117,7 @@ class _BodyState extends State<_Body> {
     final activeColor = HabitPalette.parse(_colorHex);
 
     return Screen(
+      keyboardHandler: true,
       child: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -132,7 +140,7 @@ class _BodyState extends State<_Body> {
                     Space.y.t12,
                     _PreviewTile(
                       name: _nameController.text.isEmpty
-                          ? (_cadence.label)
+                          ? _cadence.label
                           : _nameController.text,
                       emoji: _emoji,
                       cadence: _cadence,
@@ -142,7 +150,7 @@ class _BodyState extends State<_Body> {
                     Text(
                       'CADENCE',
                       style: AppText.l1b
-                          .cl(AppColors.inkFaint)
+                          .cl(AppTheme.c.subText)
                           .copyWith(letterSpacing: 1.2),
                     ),
                     Space.y.t08,
@@ -154,24 +162,25 @@ class _BodyState extends State<_Body> {
                     Text(
                       'FOLDER NAME',
                       style: AppText.l1b
-                          .cl(AppColors.inkFaint)
+                          .cl(AppTheme.c.subText)
                           .copyWith(letterSpacing: 1.2),
                     ),
                     Space.y.t08,
                     Container(
                       padding: Space.sym(16, 12),
                       decoration: BoxDecoration(
-                        color: AppColors.specBackground,
+                        color: AppTheme.c.specBackground,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                            color: AppColors.fieldBorder, width: 1.2),
+                        border:
+                            Border.all(color: AppTheme.c.border, width: 1.2),
                       ),
                       child: TextField(
                         controller: _nameController,
-                        style: AppText.b1b.cl(AppColors.text),
+                        style: AppText.b1b.cl(AppTheme.c.text),
                         decoration: InputDecoration(
-                          hintText: 'e.g. This Week, November Goals, Weekend Sprint',
-                          hintStyle: AppText.b1.cl(AppColors.hint),
+                          hintText:
+                              'e.g. This Week, November Goals, Weekend Sprint',
+                          hintStyle: AppText.b1.cl(AppTheme.c.subText),
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
@@ -183,7 +192,7 @@ class _BodyState extends State<_Body> {
                     Text(
                       'ICON',
                       style: AppText.l1b
-                          .cl(AppColors.inkFaint)
+                          .cl(AppTheme.c.subText)
                           .copyWith(letterSpacing: 1.2),
                     ),
                     Space.y.t08,
@@ -196,7 +205,7 @@ class _BodyState extends State<_Body> {
                     Text(
                       'ACCENT COLOR',
                       style: AppText.l1b
-                          .cl(AppColors.inkFaint)
+                          .cl(AppTheme.c.subText)
                           .copyWith(letterSpacing: 1.2),
                     ),
                     Space.y.t08,
@@ -215,6 +224,13 @@ class _BodyState extends State<_Body> {
                     if (_isEdit) ...[
                       Space.y.t12,
                       AppButton(
+                        label: 'Archive Folder',
+                        style: .creamy,
+                        size: .medium,
+                        onTap: _archive,
+                      ),
+                      Space.y.t12,
+                      AppButton(
                         label: 'Delete Folder',
                         style: .error,
                         size: .medium,
@@ -229,246 +245,6 @@ class _BodyState extends State<_Body> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _FormHeader extends StatelessWidget {
-  final String title;
-  final VoidCallback onBack;
-
-  const _FormHeader({required this.title, required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: Space.sym(20, 12),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: onBack,
-            behavior: HitTestBehavior.opaque,
-            child: const Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(Icons.arrow_back_ios_new_rounded,
-                  size: 20, color: AppColors.text),
-            ),
-          ),
-          Space.x.t12,
-          Text(title, style: AppText.h2b.cl(AppColors.text)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreviewTile extends StatelessWidget {
-  final String name;
-  final String emoji;
-  final GoalCadence cadence;
-  final Color color;
-
-  const _PreviewTile({
-    required this.name,
-    required this.emoji,
-    required this.cadence,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: Space.a.t16,
-      decoration: BoxDecoration(
-        color: AppColors.specBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(emoji, style: const TextStyle(fontSize: 24)),
-          ),
-          Space.x.t12,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name.isEmpty ? 'Folder Name' : name,
-                  style: AppText.h3b.cl(AppColors.text),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Space.y.t04,
-                Container(
-                  padding: Space.sym(8, 2),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    cadence.label.toUpperCase(),
-                    style: TextStyle(
-                      fontFamily: FontFamily.hanken,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: color,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CadenceSelector extends StatelessWidget {
-  final GoalCadence selected;
-  final ValueChanged<GoalCadence> onSelected;
-
-  const _CadenceSelector({
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: GoalCadence.values.map((cadence) {
-        final isSelected = cadence == selected;
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: GestureDetector(
-              onTap: () => onSelected(cadence),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.accent : AppColors.specBackground,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected ? AppColors.accent : AppColors.fieldBorder,
-                    width: 1.2,
-                  ),
-                ),
-                child: Text(
-                  cadence.label,
-                  style: TextStyle(
-                    fontFamily: FontFamily.hanken,
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? Colors.white : AppColors.text,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _EmojiPicker extends StatelessWidget {
-  final String selected;
-  final List<String> emojis;
-  final ValueChanged<String> onSelected;
-
-  const _EmojiPicker({
-    required this.selected,
-    required this.emojis,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: emojis.map((emoji) {
-        final isSelected = emoji == selected;
-        return GestureDetector(
-          onTap: () => onSelected(emoji),
-          child: Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.specBackground : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected ? AppColors.accent : AppColors.fieldBorder,
-                width: isSelected ? 2 : 1,
-              ),
-            ),
-            child: Text(emoji, style: const TextStyle(fontSize: 22)),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _ColorPicker extends StatelessWidget {
-  final String selected;
-  final List<String> palette;
-  final ValueChanged<String> onSelected;
-
-  const _ColorPicker({
-    required this.selected,
-    required this.palette,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: palette.map((hex) {
-        final isSelected = hex == selected;
-        final color = HabitPalette.parse(hex);
-        return GestureDetector(
-          onTap: () => onSelected(hex),
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? Colors.white : Colors.transparent,
-                width: 3,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.5),
-                        blurRadius: 8,
-                        spreadRadius: 1,
-                      )
-                    ]
-                  : null,
-            ),
-            child: isSelected
-                ? const Icon(Icons.check, color: Colors.white, size: 20)
-                : null,
-          ),
-        );
-      }).toList(),
     );
   }
 }
