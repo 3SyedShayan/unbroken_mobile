@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:navigation_history_observer/navigation_history_observer.dart';
@@ -58,6 +60,13 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted) return;
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      try {
+        unawaited(FocusCubit.c(context).flushPendingCommits());
+      } catch (_) {}
+      return;
+    }
     if (state == AppLifecycleState.resumed) {
       // Re-trigger date / active day check on resume (e.g. overnight 3:00 AM rollover)
       setState(() {});

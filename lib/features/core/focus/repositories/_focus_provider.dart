@@ -18,6 +18,10 @@ class _FocusProvider {
       query = query.where('logicalDayKey', isGreaterThanOrEqualTo: windowStartKey);
     }
     return query.snapshots().map((snapshot) {
+      SyncStatusTracker.ins.reportSnapshot(
+        isFromCache: snapshot.metadata.isFromCache,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+      );
       return snapshot.docs.map((doc) {
         final data = _cleanDoc(doc.data());
         if (!data.containsKey('logicalDayKey') || data['logicalDayKey'] == null) {
@@ -26,6 +30,44 @@ class _FocusProvider {
         return data;
       }).toList();
     });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchFocusRange(
+    String uid, {
+    required String startKey,
+    required String endKeyExclusive,
+    bool preferCache = false,
+  }) async {
+    try {
+      final query = _userFocus(uid)
+          .where('logicalDayKey', isGreaterThanOrEqualTo: startKey)
+          .where('logicalDayKey', isLessThan: endKeyExclusive);
+
+      QuerySnapshot<Map<String, dynamic>> snapshot;
+      if (preferCache) {
+        try {
+          snapshot = await query.get(const GetOptions(source: Source.cache));
+        } catch (_) {
+          snapshot = await query
+              .get(const GetOptions(source: Source.serverAndCache))
+              .timeout(FirebaseConfig.queryTimeout);
+        }
+      } else {
+        snapshot = await query
+            .get(const GetOptions(source: Source.serverAndCache))
+            .timeout(FirebaseConfig.queryTimeout);
+      }
+
+      return snapshot.docs.map((doc) {
+        final data = _cleanDoc(doc.data());
+        if (!data.containsKey('logicalDayKey') || data['logicalDayKey'] == null) {
+          data['logicalDayKey'] = doc.id;
+        }
+        return data;
+      }).toList();
+    } catch (e, s) {
+      throw Fault.fromObjectAndStackTrace(e, s);
+    }
   }
 
   Future<void> upsertFocus(
@@ -39,7 +81,27 @@ class _FocusProvider {
       payload['logicalDayKey'] = logicalDayKey;
       payload['updatedAt'] = FieldValue.serverTimestamp();
 
-      await docRef.set(payload, SetOptions(merge: true));
+      final rawSlots = payload['slots'];
+      if (rawSlots is Map) {
+        final sanitizedSlots = <String, dynamic>{};
+        rawSlots.forEach((key, value) {
+          if (value is Map) {
+            final slotId = (value['id'] as String? ?? 's$key');
+            final slotText = (value['text'] as String? ?? '');
+            sanitizedSlots[key.toString()] = {
+              'id': slotId.length > 64 ? slotId.substring(0, 64) : slotId,
+              'text': slotText.length > 300 ? slotText.substring(0, 300) : slotText,
+              'done': value['done'] as bool? ?? false,
+            };
+          }
+        });
+        payload['slots'] = sanitizedSlots;
+      }
+
+      await runOptimisticWrite(
+        () => docRef.set(payload, SetOptions(merge: false)),
+        tag: 'FOCUS',
+      );
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -47,7 +109,10 @@ class _FocusProvider {
 
   Future<void> deleteFocus(String uid, String logicalDayKey) async {
     try {
-      await _userFocus(uid).doc(logicalDayKey).delete();
+      await runOptimisticWrite(
+        () => _userFocus(uid).doc(logicalDayKey).delete(),
+        tag: 'FOCUS',
+      );
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
