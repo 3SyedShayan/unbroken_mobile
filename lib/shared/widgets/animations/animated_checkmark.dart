@@ -35,7 +35,7 @@ class _AppAnimatedCheckmarkState extends State<AppAnimatedCheckmark>
     _controller = AnimationController(
       vsync: this,
       duration: widget.duration ?? AppProps.fast,
-      value: widget.checked ? 1.0 : 0.0,
+      value: (widget.checked && !widget.alwaysMountIcon) ? 0.0 : (widget.checked ? 1.0 : 0.0),
     );
 
     _drawAnimation = CurvedAnimation(
@@ -55,6 +55,10 @@ class _AppAnimatedCheckmarkState extends State<AppAnimatedCheckmark>
         weight: 40,
       ),
     ]).animate(_controller);
+
+    if (widget.checked && !widget.alwaysMountIcon) {
+      _controller.forward();
+    }
   }
 
   @override

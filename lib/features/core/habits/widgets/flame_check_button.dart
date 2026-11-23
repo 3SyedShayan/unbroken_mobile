@@ -68,9 +68,6 @@ class _FlameCheckButtonState extends State<FlameCheckButton>
         onTap: () {
           HapticFeedback.lightImpact();
           widget.onToggle();
-          if (!widget.isDone) {
-            _controller.forward(from: 0.0);
-          }
         },
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(

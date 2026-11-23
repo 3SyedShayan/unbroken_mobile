@@ -62,7 +62,6 @@ class _DashboardTab extends StatelessWidget {
                     AnimatedReorderList<Habit>(
                       items: habits,
                       itemKey: (h) => h.id,
-                      duration: AppProps.normal,
                       separator: Space.y.t12,
                       itemBuilder: (context, habit, i) {
                         return HabitRowCard(

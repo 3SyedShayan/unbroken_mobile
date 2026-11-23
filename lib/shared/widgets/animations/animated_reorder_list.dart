@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 class AnimatedReorderList<T> extends StatefulWidget {
@@ -7,6 +8,7 @@ class AnimatedReorderList<T> extends StatefulWidget {
   final Widget? separator;
   final double separatorHeight;
   final Duration duration;
+  final Duration delay;
   final Curve curve;
 
   const AnimatedReorderList({
@@ -16,7 +18,8 @@ class AnimatedReorderList<T> extends StatefulWidget {
     required this.itemBuilder,
     this.separator,
     this.separatorHeight = 12.0,
-    this.duration = const Duration(milliseconds: 500),
+    this.duration = const Duration(milliseconds: 380),
+    this.delay = const Duration(milliseconds: 120),
     this.curve = Curves.easeInOutCubic,
   });
 
@@ -33,6 +36,7 @@ class _AnimatedReorderListState<T> extends State<AnimatedReorderList<T>>
   final Map<Object, double> _currentDeltas = {};
   final Map<Object, GlobalKey> _itemGlobalKeys = {};
   double _measuredStride = 82.0;
+  Timer? _delayTimer;
 
   @override
   void initState() {
@@ -62,8 +66,8 @@ class _AnimatedReorderListState<T> extends State<AnimatedReorderList<T>>
     final newKeys = widget.items.map(widget.itemKey).toList();
 
     if (!_areKeysIdentical(oldKeys, newKeys)) {
-      final isStillRunning = _controller.isAnimating;
-      final currentProgress = isStillRunning ? (1.0 - _animation.value) : 0.0;
+      final isStillRunning = _controller.isAnimating || (_delayTimer?.isActive ?? false);
+      final currentProgress = _controller.isAnimating ? (1.0 - _animation.value) : 1.0;
 
       final newDeltas = <Object, double>{};
       var hasMovement = false;
@@ -92,8 +96,18 @@ class _AnimatedReorderListState<T> extends State<AnimatedReorderList<T>>
         ..addAll(newDeltas);
       _previousKeys = List<Object>.from(newKeys);
 
+      _delayTimer?.cancel();
       if (hasMovement) {
-        _controller.forward(from: 0.0);
+        if (widget.delay > Duration.zero && !isStillRunning) {
+          _controller.value = 0.0;
+          _delayTimer = Timer(widget.delay, () {
+            if (mounted) {
+              _controller.forward(from: 0.0);
+            }
+          });
+        } else {
+          _controller.forward(from: 0.0);
+        }
       } else {
         _controller.value = 1.0;
       }
@@ -112,50 +126,67 @@ class _AnimatedReorderListState<T> extends State<AnimatedReorderList<T>>
 
   @override
   void dispose() {
+    _delayTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        final progress = (1.0 - _animation.value);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < widget.items.length; i++) ...[
-              if (i > 0 && widget.separator != null) widget.separator!,
-              _buildItem(widget.items[i], i, progress),
-            ],
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < widget.items.length; i++) ...[
+          if (i > 0 && widget.separator != null) widget.separator!,
+          _ReorderItemWrapper(
+            key: ValueKey(widget.itemKey(widget.items[i])),
+            animation: _animation,
+            delta: _currentDeltas[widget.itemKey(widget.items[i])] ?? 0.0,
+            child: KeyedSubtree(
+              key: _itemGlobalKeys.putIfAbsent(
+                widget.itemKey(widget.items[i]),
+                GlobalKey.new,
+              ),
+              child: widget.itemBuilder(context, widget.items[i], i),
+            ),
+          ),
+        ],
+      ],
     );
   }
+}
 
-  Widget _buildItem(T item, int index, double progress) {
-    final key = widget.itemKey(item);
-    final delta = _currentDeltas[key] ?? 0.0;
-    final dy = delta * progress;
+class _ReorderItemWrapper extends StatelessWidget {
+  final Widget child;
+  final Animation<double> animation;
+  final double delta;
 
-    final gKey = _itemGlobalKeys.putIfAbsent(key, GlobalKey.new);
+  const _ReorderItemWrapper({
+    super.key,
+    required this.child,
+    required this.animation,
+    required this.delta,
+  });
 
-    final child = KeyedSubtree(
-      key: gKey,
-      child: widget.itemBuilder(context, item, index),
-    );
-
-    if (dy.abs() < 0.1) {
-      return child;
+  @override
+  Widget build(BuildContext context) {
+    if (delta == 0.0) {
+      return RepaintBoundary(child: child);
     }
 
-    return Transform.translate(
-      offset: Offset(0.0, dy),
-      child: child,
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: animation,
+        child: child,
+        builder: (context, cachedChild) {
+          final dy = delta * (1.0 - animation.value);
+          return Transform.translate(
+            offset: Offset(0.0, dy),
+            child: cachedChild,
+          );
+        },
+      ),
     );
   }
 }
