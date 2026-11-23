@@ -102,5 +102,15 @@ void main() {
 
     // Verify Goals tab is now visible
     expect(find.text('No Goal Folders Yet'), findsOneWidget);
+
+    // Tap on Progress tab
+    final progressTabFinder = find.text('Progress');
+    expect(progressTabFinder, findsOneWidget);
+
+    await tester.tap(progressTabFinder);
+    await tester.pumpAndSettle();
+
+    // Verify Progress tab is now visible
+    expect(find.text('Your Progress Starts Today'), findsOneWidget);
   });
 }
