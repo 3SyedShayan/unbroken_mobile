@@ -50,16 +50,6 @@ class _FakeSettingsRepo extends SettingsRepo {
       });
 
   @override
-  Future<Map<String, dynamic>?> getSettings(String uid) async => {
-        'dayEndHour': 3,
-        'atRiskWindowHours': 4,
-        'habitOrder': ['h_read', 'h_run'],
-        'weekStartMonday': false,
-        'hasOnboarded': true,
-        'didCheckInOnce': true,
-      };
-
-  @override
   Future<void> updateSettings(String uid, Map<String, dynamic> data) async {}
 
   @override

@@ -53,17 +53,25 @@ class _FakeFocusRepo extends FocusRepo {
 
 class _FakeGoalsRepo extends GoalsRepo {
   _FakeGoalsRepo() : super.test();
+  int observeFoldersCalls = 0;
+  int observeGoalsCalls = 0;
+
   @override
-  Stream<List<Map<String, dynamic>>> observeFolders(String uid) =>
-      const Stream.empty();
+  Stream<List<Map<String, dynamic>>> observeFolders(String uid) {
+    observeFoldersCalls++;
+    return const Stream.empty();
+  }
+
   @override
   Stream<List<Map<String, dynamic>>> observeGoals(String uid,
-          {String? folderId}) =>
-      const Stream.empty();
+      {String? folderId}) {
+    observeGoalsCalls++;
+    return const Stream.empty();
+  }
 }
 
 void main() {
-  testWidgets('Tapping Goals tab switches IndexedStack to GoalsTab',
+  testWidgets('Tapping Goals tab switches IndexedStack to GoalsTab and lazily observes GoalsRepo',
       (tester) async {
     final authRepo = _FakeAuthRepo();
     final settingsRepo = _FakeSettingsRepo();
@@ -90,8 +98,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify initially on Today (Dashboard)
+    // Verify initially on Today (Dashboard) and Goals listeners have not opened lazily
     expect(find.text('No Goal Folders Yet'), findsNothing);
+    expect(goalsRepo.observeFoldersCalls, 0);
+    expect(goalsRepo.observeGoalsCalls, 0);
 
     // Tap on Goals tab
     final goalsTabFinder = find.text('Goals');
@@ -100,8 +110,10 @@ void main() {
     await tester.tap(goalsTabFinder);
     await tester.pumpAndSettle();
 
-    // Verify Goals tab is now visible
+    // Verify Goals tab is now visible and Goals listeners started
     expect(find.text('No Goal Folders Yet'), findsOneWidget);
+    expect(goalsRepo.observeFoldersCalls, 1);
+    expect(goalsRepo.observeGoalsCalls, 1);
 
     // Tap on Progress tab
     final progressTabFinder = find.text('Progress');

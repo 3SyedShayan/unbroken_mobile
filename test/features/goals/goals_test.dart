@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:unbroken_mobile/features/core/goals/domain/goal_cadence.dart';
+import 'package:unbroken_mobile/features/core/goals/domain/goal_period_helper.dart';
 import 'package:unbroken_mobile/features/core/goals/models/goal.dart';
 import 'package:unbroken_mobile/features/core/goals/models/goal_folder.dart';
 import 'package:unbroken_mobile/features/core/goals/repositories/goals_repo.dart';
@@ -12,6 +13,8 @@ class _FakeGoalsRepo extends GoalsRepo {
 
   final List<Map<String, dynamic>> folders = [];
   final List<Map<String, dynamic>> goals = [];
+  bool? lastFolderIsUpdate;
+  bool? lastGoalIsUpdate;
 
   final _foldersController =
       StreamController<List<Map<String, dynamic>>>.broadcast();
@@ -41,7 +44,12 @@ class _FakeGoalsRepo extends GoalsRepo {
   }
 
   @override
-  Future<void> upsertFolder(String uid, Map<String, dynamic> folderData) async {
+  Future<void> upsertFolder(
+    String uid,
+    Map<String, dynamic> folderData, {
+    bool isUpdate = false,
+  }) async {
+    lastFolderIsUpdate = isUpdate;
     final idx = folders.indexWhere((f) => f['id'] == folderData['id']);
     if (idx >= 0) {
       folders[idx] = Map.from(folderData);
@@ -60,7 +68,12 @@ class _FakeGoalsRepo extends GoalsRepo {
   }
 
   @override
-  Future<void> upsertGoal(String uid, Map<String, dynamic> goalData) async {
+  Future<void> upsertGoal(
+    String uid,
+    Map<String, dynamic> goalData, {
+    bool isUpdate = false,
+  }) async {
+    lastGoalIsUpdate = isUpdate;
     final idx = goals.indexWhere((g) => g['id'] == goalData['id']);
     if (idx >= 0) {
       goals[idx] = Map.from(goalData);
@@ -248,6 +261,174 @@ void main() {
       expect(cubit.state.folders, isEmpty);
       expect(cubit.state.goals, isEmpty);
       expect(cubit.state.selectedFolder, isNull);
+      expect(cubit.state.selectedFolderId, isNull);
+    });
+
+    test('updateGoal modifies title, notes, targetDateKey and supports clearing',
+        () async {
+      cubit.startObserving('user_1');
+      await pumpEventQueue();
+
+      await cubit.createFolder(
+        name: 'Sprint',
+        cadence: GoalCadence.weekly,
+      );
+      await pumpEventQueue();
+      final folderId = cubit.state.folders.first.id;
+      expect(repo.lastFolderIsUpdate, isFalse);
+
+      await cubit.addGoal(folderId: folderId, title: 'Initial Title');
+      await pumpEventQueue();
+      final goal = cubit.state.goals.first;
+
+      await cubit.updateGoal(
+        goal,
+        title: 'Updated Title',
+        notes: 'Important note',
+        targetDateKey: '2026-11-30',
+      );
+      await pumpEventQueue();
+
+      expect(repo.lastGoalIsUpdate, isTrue);
+      final updated = cubit.state.goals.first;
+      expect(updated.title, 'Updated Title');
+      expect(updated.notes, 'Important note');
+      expect(updated.targetDateKey, '2026-11-30');
+
+      await cubit.updateGoal(
+        updated,
+        clearNotes: true,
+        clearTargetDate: true,
+      );
+      await pumpEventQueue();
+      final cleared = cubit.state.goals.first;
+      expect(cleared.notes, isNull);
+      expect(cleared.targetDateKey, isNull);
+    });
+
+    test('archiveFolder and unarchiveFolder update lists and selectedFolder',
+        () async {
+      cubit.startObserving('user_1');
+      await pumpEventQueue();
+
+      await cubit.createFolder(name: 'F1', cadence: GoalCadence.weekly);
+      await cubit.createFolder(name: 'F2', cadence: GoalCadence.monthly);
+      await pumpEventQueue();
+
+      final f2 = cubit.state.folders.last;
+      expect(cubit.state.selectedFolder?.id, f2.id);
+
+      await cubit.archiveFolder(f2);
+      await pumpEventQueue();
+      expect(repo.lastFolderIsUpdate, isTrue);
+      expect(cubit.state.activeFolders.length, 1);
+      expect(cubit.state.archivedFolders.length, 1);
+      expect(cubit.state.selectedFolder?.name, 'F1');
+
+      await cubit.unarchiveFolder(cubit.state.archivedFolders.first);
+      await pumpEventQueue();
+      expect(cubit.state.activeFolders.length, 2);
+      expect(cubit.state.archivedFolders, isEmpty);
+      expect(cubit.state.selectedFolder?.name, 'F2');
+    });
+
+    test('deleteGoal and restoreGoal support undo workflow', () async {
+      cubit.startObserving('user_1');
+      await pumpEventQueue();
+
+      await cubit.createFolder(name: 'F1', cadence: GoalCadence.custom);
+      await pumpEventQueue();
+      final folderId = cubit.state.folders.first.id;
+
+      await cubit.addGoal(folderId: folderId, title: 'Undoable Goal');
+      await pumpEventQueue();
+      final goal = cubit.state.goals.first;
+
+      await cubit.deleteGoal(goal.id);
+      await pumpEventQueue();
+      expect(cubit.state.goals, isEmpty);
+
+      await cubit.restoreGoal(goal);
+      await pumpEventQueue();
+      expect(cubit.state.goals.length, 1);
+      expect(cubit.state.goals.first.title, 'Undoable Goal');
+    });
+  });
+
+  group('GoalPeriodHelper', () {
+    test('generateFolderId clamps long names strictly under 64 characters', () {
+      final longName = 'A very long folder name ' * 4;
+      final id = GoalPeriodHelper.generateFolderId(
+        name: '$longName !!! ###',
+        now: DateTime(2026, 11, 23, 12, 0),
+      );
+      expect(id.length, lessThanOrEqualTo(64));
+      expect(id.startsWith('gf_'), isTrue);
+    });
+
+    test('periodKeyFor formats weekly, monthly, weekend, and custom', () {
+      final monday = DateTime(2026, 11, 23); // ISO W48
+      expect(GoalPeriodHelper.periodKeyFor(GoalCadence.weekly, monday), '2026-W48');
+      expect(GoalPeriodHelper.periodKeyFor(GoalCadence.monthly, monday), '2026-11');
+      expect(
+        GoalPeriodHelper.periodKeyFor(GoalCadence.weekend, monday),
+        '2026-W48-WE',
+      );
+      expect(GoalPeriodHelper.periodKeyFor(GoalCadence.custom, monday), isNull);
+    });
+
+    test('cadenceCountdownLabel handles weekly, monthly, weekend, and custom', () {
+      final monday = DateTime(2026, 11, 23);
+      expect(
+        GoalPeriodHelper.cadenceCountdownLabel(
+          GoalCadence.weekly,
+          monday,
+          weekStartsMonday: true,
+        ),
+        '7d left this week',
+      );
+      expect(
+        GoalPeriodHelper.cadenceCountdownLabel(
+          GoalCadence.monthly,
+          DateTime(2026, 11, 30),
+        ),
+        'Last day of Nov',
+      );
+      expect(
+        GoalPeriodHelper.cadenceCountdownLabel(
+          GoalCadence.weekend,
+          DateTime(2026, 11, 28), // Saturday
+        ),
+        'This weekend',
+      );
+      expect(
+        GoalPeriodHelper.cadenceCountdownLabel(GoalCadence.custom, monday),
+        isNull,
+      );
+    });
+
+    test('targetDateBadge computes urgency levels accurately', () {
+      final today = DateTime(2026, 11, 23);
+
+      final overdue = GoalPeriodHelper.targetDateBadge('2026-11-21', today)!;
+      expect(overdue.label, 'Overdue 2d');
+      expect(overdue.urgency, GoalDateUrgency.overdue);
+
+      final dueToday = GoalPeriodHelper.targetDateBadge('2026-11-23', today)!;
+      expect(dueToday.label, 'Due today');
+      expect(dueToday.urgency, GoalDateUrgency.dueSoon);
+
+      final tomorrow = GoalPeriodHelper.targetDateBadge('2026-11-24', today)!;
+      expect(tomorrow.label, 'Tomorrow');
+      expect(tomorrow.urgency, GoalDateUrgency.dueSoon);
+
+      final soon = GoalPeriodHelper.targetDateBadge('2026-11-28', today)!;
+      expect(soon.label, 'In 5d');
+      expect(soon.urgency, GoalDateUrgency.normal);
+
+      final later = GoalPeriodHelper.targetDateBadge('2026-12-15', today)!;
+      expect(later.label, 'Dec 15');
+      expect(later.urgency, GoalDateUrgency.normal);
     });
   });
 }

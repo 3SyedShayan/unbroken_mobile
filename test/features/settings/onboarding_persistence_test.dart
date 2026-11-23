@@ -50,10 +50,14 @@ class _FakeSettingsRepo extends SettingsRepo {
   }
 
   @override
-  Stream<Map<String, dynamic>?> observeSettings(String uid) => _controller.stream;
-
-  @override
-  Future<Map<String, dynamic>?> getSettings(String uid) async => remoteStore;
+  Stream<Map<String, dynamic>?> observeSettings(String uid) {
+    scheduleMicrotask(() {
+      if (!_controller.isClosed) {
+        _controller.add(remoteStore);
+      }
+    });
+    return _controller.stream;
+  }
 
   @override
   Future<void> updateSettings(

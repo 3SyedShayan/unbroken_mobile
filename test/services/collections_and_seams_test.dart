@@ -85,17 +85,22 @@ void main() {
   });
 
   group('SignOutCleanupRegistry', () {
-    test('runs all registered handlers on runAll', () {
+    test('runs all pre-sign-out handlers before post-sign-out handlers', () async {
       final registry = SignOutCleanupRegistry.forTesting();
-      var calledA = false;
-      var calledB = false;
+      final order = <String>[];
 
-      registry.register(() => calledA = true);
-      registry.register(() => calledB = true);
+      registry.registerPostSignOut(() async {
+        await Future<void>.delayed(Duration.zero);
+        order.add('post_1');
+      });
+      registry.register(() async {
+        await Future<void>.delayed(Duration.zero);
+        order.add('pre_1');
+      });
+      registry.register(() => order.add('pre_2'));
 
-      registry.runAll();
-      expect(calledA, isTrue);
-      expect(calledB, isTrue);
+      await registry.runAll();
+      expect(order, equals(['pre_1', 'pre_2', 'post_1']));
     });
   });
 }

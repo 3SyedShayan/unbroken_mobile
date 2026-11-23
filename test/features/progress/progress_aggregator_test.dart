@@ -21,18 +21,6 @@ void main() {
       expect(ProgressAggregator.ratioToLevel(0.99), 3);
       expect(ProgressAggregator.ratioToLevel(1.0), 4);
     });
-
-    test('streakLengthToLevel maps consecutive run length to 0..4', () {
-      expect(ProgressAggregator.streakLengthToLevel(0), 0);
-      expect(ProgressAggregator.streakLengthToLevel(1), 1);
-      expect(ProgressAggregator.streakLengthToLevel(2), 1);
-      expect(ProgressAggregator.streakLengthToLevel(3), 2);
-      expect(ProgressAggregator.streakLengthToLevel(6), 2);
-      expect(ProgressAggregator.streakLengthToLevel(7), 3);
-      expect(ProgressAggregator.streakLengthToLevel(13), 3);
-      expect(ProgressAggregator.streakLengthToLevel(14), 4);
-      expect(ProgressAggregator.streakLengthToLevel(30), 4);
-    });
   });
 
   group('ProgressAggregator.compute', () {
@@ -136,14 +124,13 @@ void main() {
       expect(d2.isUnbroken, isTrue);
     });
 
-    test('streak-depth shading carries prior streak into window day 1', () {
+    test('habit summary completedDayKeys includes completed days and excludes incomplete days', () {
       final h1 = Habit(
         id: 'h_1',
         name: 'Meditate',
         createdAt: DateTime(2026, 9, 1, 8, 0),
       );
 
-      // Build 20-day unbroken streak ending on startDay (Oct 25) -> level 4 on Oct 25
       final startDay = DateTime(2026, 10, 25); // 30-day window: Oct 25..Nov 23
       final entries = <Entry>[
         for (var i = 19; i >= 0; i--)
@@ -160,10 +147,10 @@ void main() {
         now: now,
       );
 
-      final levels = snapshot.habitSummaries.single.streakDepthLevels;
-      // 14 prior days + Oct 25 = 15th consecutive day => level 4!
-      expect(levels['2026-10-25'], 4);
-      expect(levels['2026-10-26'], 0);
+      final completedKeys = snapshot.habitSummaries.single.completedDayKeys;
+      expect(completedKeys.contains('2026-10-25'), isTrue);
+      expect(completedKeys.contains('2026-10-24'), isTrue);
+      expect(completedKeys.contains('2026-10-26'), isFalse);
     });
 
     test('computes period-over-period delta when prior window is valid and observed', () {
