@@ -25,6 +25,7 @@ _DaySettings _$DaySettingsFromJson(Map<String, dynamic> json) => _DaySettings(
   morningReminderTime: json['morningReminderTime'] as String? ?? '09:00',
   nightReminderEnabled: json['nightReminderEnabled'] as bool? ?? false,
   nightReminderTime: json['nightReminderTime'] as String? ?? '21:00',
+  progressRange: json['progressRange'] as String? ?? '1m',
   schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
   updatedAt: json['updatedAt'] == null
       ? null
@@ -47,6 +48,7 @@ Map<String, dynamic> _$DaySettingsToJson(_DaySettings instance) =>
       'morningReminderTime': instance.morningReminderTime,
       'nightReminderEnabled': instance.nightReminderEnabled,
       'nightReminderTime': instance.nightReminderTime,
+      'progressRange': instance.progressRange,
       'schemaVersion': instance.schemaVersion,
       'updatedAt': instance.updatedAt?.toIso8601String(),
     };

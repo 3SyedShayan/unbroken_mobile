@@ -22,6 +22,7 @@ abstract class DaySettings with _$DaySettings {
     @Default('09:00') String morningReminderTime,
     @Default(false) bool nightReminderEnabled,
     @Default('21:00') String nightReminderTime,
+    @Default('1m') String progressRange,
     @Default(1) int schemaVersion,
     DateTime? updatedAt,
   }) = _DaySettings;

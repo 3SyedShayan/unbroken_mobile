@@ -11,6 +11,7 @@ class _ThemeModel {
   final Color subBackground;
   final Color specBackground;
   final Color border;
+  final Color emptyCell;
   final Color success;
   final Color warning;
   final Color error;
@@ -26,6 +27,7 @@ class _ThemeModel {
     required this.subBackground,
     required this.specBackground,
     required this.border,
+    required this.emptyCell,
     required this.success,
     required this.warning,
     required this.error,
@@ -43,6 +45,7 @@ class _ThemeModel {
     Color? subBackground,
     Color? specBackground,
     Color? border,
+    Color? emptyCell,
     Color? success,
     Color? warning,
     Color? error,
@@ -58,6 +61,7 @@ class _ThemeModel {
       subBackground: subBackground ?? this.subBackground,
       specBackground: specBackground ?? this.specBackground,
       border: border ?? this.border,
+      emptyCell: emptyCell ?? this.emptyCell,
       success: success ?? this.success,
       warning: warning ?? this.warning,
       error: error ?? this.error,

@@ -21,16 +21,23 @@ class FocusCubit extends Cubit<FocusState> {
   static FocusCubit c(BuildContext context, [bool listen = false]) =>
       BlocProvider.of<FocusCubit>(context, listen: listen);
 
+  static const int defaultWindowDays = 95;
+
   final FocusRepo _repo;
   StreamSubscription<List<Map<String, dynamic>>>? _sub;
   String? _currentUid;
+  int _observedWindowDays = defaultWindowDays;
+
+  int get observedWindowDays => _observedWindowDays;
 
   FocusCubit({FocusRepo? repo})
-      : _repo = repo ?? FocusRepo.ins,
-        super(FocusState(
+    : _repo = repo ?? FocusRepo.ins,
+      super(
+        FocusState(
           fetch: BlocState<List<DailyFocus>>(),
           action: BlocState<void>(),
-        )) {
+        ),
+      ) {
     SignOutCleanupRegistry.ins.register(_clearOnSignOut);
   }
 
@@ -38,92 +45,82 @@ class FocusCubit extends Cubit<FocusState> {
     _sub?.cancel();
     _sub = null;
     _currentUid = null;
-    emit(FocusState(
-      fetch: BlocState<List<DailyFocus>>(),
-      action: BlocState<void>(),
-    ));
+    _observedWindowDays = defaultWindowDays;
+    emit(
+      FocusState(
+        fetch: BlocState<List<DailyFocus>>(),
+        action: BlocState<void>(),
+      ),
+    );
   }
 
-  void onAppResumed() {
+  void ensureHistoryWindowDays(int days) {
+    if (days <= _observedWindowDays) return;
+    _observedWindowDays = days;
     if (_currentUid != null) {
-      final ninetyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
-      final windowKey = DaySettings.dayKey(ninetyDaysAgo);
-      _sub?.cancel();
-      _sub = _repo
-          .observeFocus(_currentUid!, windowStartKey: windowKey)
-          .listen((rawList) {
-        final list = <DailyFocus>[];
-        for (final m in rawList) {
-          try {
-            list.add(DailyFocus.fromJson(m));
-          } catch (e, s) {
-            final key = m['logicalDayKey'] ?? 'unknown';
-            'Failed to parse daily focus ($key): $e'.appLog(
+      _subscribeFocus(_currentUid!);
+    }
+  }
+
+  void _subscribeFocus(String uid) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day - _observedWindowDays);
+    final windowKey = DaySettings.dayKey(start);
+    _sub?.cancel();
+    _sub = _repo
+        .observeFocus(uid, windowStartKey: windowKey)
+        .listen(
+          (rawList) {
+            final list = <DailyFocus>[];
+            for (final m in rawList) {
+              try {
+                list.add(DailyFocus.fromJson(m));
+              } catch (e, s) {
+                final key = m['logicalDayKey'] ?? 'unknown';
+                'Failed to parse daily focus ($key): $e'.appLog(
+                  tag: 'FOCUS',
+                  level: AppLogLevel.error,
+                  error: e,
+                  stackTrace: s,
+                );
+              }
+            }
+            emit(
+              state.copyWith(
+                focusList: list,
+                fetch: state.fetch.toSuccess(data: list),
+              ),
+            );
+          },
+          onError: (Object e, StackTrace s) {
+            'Error in observeFocus: $e'.appLog(
               tag: 'FOCUS',
               level: AppLogLevel.error,
               error: e,
               stackTrace: s,
             );
-          }
-        }
-        emit(state.copyWith(
-          focusList: list,
-          fetch: state.fetch.toSuccess(data: list),
-        ));
-      }, onError: (Object e, StackTrace s) {
-        'Error in observeFocus: $e'.appLog(
-          tag: 'FOCUS',
-          level: AppLogLevel.error,
-          error: e,
-          stackTrace: s,
+          },
         );
-      });
+  }
+
+  void onAppResumed() {
+    if (_currentUid != null) {
+      _subscribeFocus(_currentUid!);
     }
   }
 
   static const int maxTasks = 10;
 
   static List<FocusItem> get emptyThree => [
-        const FocusItem(id: 's0', text: '', done: false),
-        const FocusItem(id: 's1', text: '', done: false),
-        const FocusItem(id: 's2', text: '', done: false),
-      ];
+    const FocusItem(id: 's0', text: '', done: false),
+    const FocusItem(id: 's1', text: '', done: false),
+    const FocusItem(id: 's2', text: '', done: false),
+  ];
 
   void startObserving(String uid) {
     if (_currentUid == uid && _sub != null) return;
     _currentUid = uid;
-    _sub?.cancel();
-
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
-    final windowKey = DaySettings.dayKey(thirtyDaysAgo);
-
-    _sub = _repo.observeFocus(uid, windowStartKey: windowKey).listen((rawList) {
-      final list = <DailyFocus>[];
-      for (final m in rawList) {
-        try {
-          list.add(DailyFocus.fromJson(m));
-        } catch (e, s) {
-          final key = m['logicalDayKey'] ?? 'unknown';
-          'Failed to parse daily focus ($key): $e'.appLog(
-            tag: 'FOCUS',
-            level: AppLogLevel.error,
-            error: e,
-            stackTrace: s,
-          );
-        }
-      }
-      emit(state.copyWith(
-        focusList: list,
-        fetch: state.fetch.toSuccess(data: list),
-      ));
-    }, onError: (Object e, StackTrace s) {
-      'Error in observeFocus: $e'.appLog(
-        tag: 'FOCUS',
-        level: AppLogLevel.error,
-        error: e,
-        stackTrace: s,
-      );
-    });
+    _subscribeFocus(uid);
   }
 
   Future<void> toggleSlot({
@@ -143,7 +140,8 @@ class FocusCubit extends Cubit<FocusState> {
     items[index] = updatedItem;
 
     final willBeCleared =
-        items.isNotEmpty && items.every((it) => it.done && it.text.trim().isNotEmpty);
+        items.isNotEmpty &&
+        items.every((it) => it.done && it.text.trim().isNotEmpty);
 
     if (settings.streakSounds) {
       if (willBeCleared && !current.isCleared) {
@@ -197,8 +195,7 @@ class FocusCubit extends Cubit<FocusState> {
     required int index,
     required DateTime asOf,
     required DaySettings settings,
-  }) =>
-      deleteTask(index: index, asOf: asOf, settings: settings);
+  }) => deleteTask(index: index, asOf: asOf, settings: settings);
 
   Future<void> addTask({
     required String text,
@@ -214,11 +211,13 @@ class FocusCubit extends Cubit<FocusState> {
 
     if (items.length >= maxTasks) return;
 
-    items.add(FocusItem(
-      id: 's${items.length}_${DateTime.now().millisecondsSinceEpoch}',
-      text: trimmed,
-      done: false,
-    ));
+    items.add(
+      FocusItem(
+        id: 's${items.length}_${DateTime.now().millisecondsSinceEpoch}',
+        text: trimmed,
+        done: false,
+      ),
+    );
 
     await _commitItems(dayKey: dayKey, items: items);
   }
@@ -234,7 +233,9 @@ class FocusCubit extends Cubit<FocusState> {
     // If today already has tasks written, do not overwrite
     if (currentToday.itemsList.isNotEmpty) return;
 
-    final yesterday = settings.logicalDay(asOf).subtract(const Duration(days: 1));
+    final yesterday = settings
+        .logicalDay(asOf)
+        .subtract(const Duration(days: 1));
     final yesterdayKey = DaySettings.dayKey(yesterday);
     final yesterdayFocus = state.focusForDay(yesterdayKey);
     final unfinished = yesterdayFocus.itemsList
@@ -245,11 +246,7 @@ class FocusCubit extends Cubit<FocusState> {
 
     final newItems = <FocusItem>[];
     for (var i = 0; i < unfinished.length && i < maxTasks; i++) {
-      newItems.add(FocusItem(
-        id: 's$i',
-        text: unfinished[i].text,
-        done: false,
-      ));
+      newItems.add(FocusItem(id: 's$i', text: unfinished[i].text, done: false));
     }
 
     await _commitItems(dayKey: todayKey, items: newItems);
@@ -274,9 +271,13 @@ class FocusCubit extends Cubit<FocusState> {
       } on Fault catch (f) {
         emit(state.copyWith(action: state.action.toFailed(fault: f)));
       } catch (e, s) {
-        emit(state.copyWith(
-          action: state.action.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
-        ));
+        emit(
+          state.copyWith(
+            action: state.action.toFailed(
+              fault: Fault.fromObjectAndStackTrace(e, s),
+            ),
+          ),
+        );
       }
       return;
     }
@@ -306,9 +307,13 @@ class FocusCubit extends Cubit<FocusState> {
     } on Fault catch (f) {
       emit(state.copyWith(action: state.action.toFailed(fault: f)));
     } catch (e, s) {
-      emit(state.copyWith(
-        action: state.action.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
-      ));
+      emit(
+        state.copyWith(
+          action: state.action.toFailed(
+            fault: Fault.fromObjectAndStackTrace(e, s),
+          ),
+        ),
+      );
     }
   }
 

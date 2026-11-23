@@ -100,6 +100,12 @@ class _SettingsProvider {
           prefs['nightReminderTime'] as String,
         );
       }
+      if (prefs.containsKey('progressRange')) {
+        await sp.setString(
+          'progressRange',
+          prefs['progressRange'] as String,
+        );
+      }
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);
     }
@@ -119,6 +125,7 @@ class _SettingsProvider {
         'morningReminderTime': sp.getString('morningReminderTime') ?? '09:00',
         'nightReminderEnabled': sp.getBool('nightReminderEnabled') ?? false,
         'nightReminderTime': sp.getString('nightReminderTime') ?? '21:00',
+        'progressRange': sp.getString('progressRange') ?? '1m',
       };
     } catch (e, s) {
       throw Fault.fromObjectAndStackTrace(e, s);

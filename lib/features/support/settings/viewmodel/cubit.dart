@@ -68,6 +68,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         morningReminderTime: local['morningReminderTime'] as String? ?? '09:00',
         nightReminderEnabled: local['nightReminderEnabled'] as bool? ?? false,
         nightReminderTime: local['nightReminderTime'] as String? ?? '21:00',
+        progressRange: local['progressRange'] as String? ?? '1m',
       );
       emit(state.copyWith(settings: updated));
       await _syncNotifications(updated);
@@ -157,6 +158,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         'morningReminderTime': newSettings.morningReminderTime,
         'nightReminderEnabled': newSettings.nightReminderEnabled,
         'nightReminderTime': newSettings.nightReminderTime,
+        'progressRange': newSettings.progressRange,
       });
       await _syncNotifications(newSettings);
       emit(state.copyWith(update: state.update.toSuccess()));
@@ -221,6 +223,11 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> setNightReminderTime(String timeStr) async {
     final updated = state.settings.copyWith(nightReminderTime: timeStr);
+    await updateDaySettings(updated);
+  }
+
+  Future<void> setProgressRange(String rangeKey) async {
+    final updated = state.settings.copyWith(progressRange: rangeKey);
     await updateDaySettings(updated);
   }
 

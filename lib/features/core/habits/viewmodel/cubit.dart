@@ -20,17 +20,21 @@ class HabitsCubit extends Cubit<HabitsState> {
   static HabitsCubit c(BuildContext context, [bool listen = false]) =>
       BlocProvider.of<HabitsCubit>(context, listen: listen);
 
+  static const int defaultWindowDays = 95;
+
   final HabitsRepo _repo;
   StreamSubscription<List<Map<String, dynamic>>>? _habitsSub;
   StreamSubscription<List<Map<String, dynamic>>>? _entriesSub;
   String? _currentUid;
+  int _observedWindowDays = defaultWindowDays;
+
+  int get observedWindowDays => _observedWindowDays;
 
   HabitsCubit({HabitsRepo? repo})
-      : _repo = repo ?? HabitsRepo.ins,
-        super(HabitsState(
-          fetch: BlocState<List<Habit>>(),
-          action: BlocState<void>(),
-        )) {
+    : _repo = repo ?? HabitsRepo.ins,
+      super(
+        HabitsState(fetch: BlocState<List<Habit>>(), action: BlocState<void>()),
+      ) {
     SignOutCleanupRegistry.ins.register(_clearOnSignOut);
   }
 
@@ -40,43 +44,59 @@ class HabitsCubit extends Cubit<HabitsState> {
     _habitsSub = null;
     _entriesSub = null;
     _currentUid = null;
-    emit(HabitsState(
-      fetch: BlocState<List<Habit>>(),
-      action: BlocState<void>(),
-    ));
+    _observedWindowDays = defaultWindowDays;
+    emit(
+      HabitsState(fetch: BlocState<List<Habit>>(), action: BlocState<void>()),
+    );
   }
 
-  void onAppResumed() {
+  void ensureHistoryWindowDays(int days) {
+    if (days <= _observedWindowDays) return;
+    _observedWindowDays = days;
     if (_currentUid != null) {
-      final ninetyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
-      final windowKey = DaySettings.dayKey(ninetyDaysAgo);
-      _entriesSub?.cancel();
-      _entriesSub = _repo
-          .observeEntries(_currentUid!, windowStartKey: windowKey)
-          .listen((rawList) {
-        final entries = <Entry>[];
-        for (final m in rawList) {
-          try {
-            entries.add(Entry.fromJson(m));
-          } catch (e, s) {
-            final id = m['id'] ?? 'unknown';
-            'Failed to parse entry ($id): $e'.appLog(
+      _subscribeEntries(_currentUid!);
+    }
+  }
+
+  void _subscribeEntries(String uid) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day - _observedWindowDays);
+    final windowKey = DaySettings.dayKey(start);
+    _entriesSub?.cancel();
+    _entriesSub = _repo
+        .observeEntries(uid, windowStartKey: windowKey)
+        .listen(
+          (rawList) {
+            final entries = <Entry>[];
+            for (final m in rawList) {
+              try {
+                entries.add(Entry.fromJson(m));
+              } catch (e, s) {
+                final id = m['id'] ?? 'unknown';
+                'Failed to parse entry ($id): $e'.appLog(
+                  tag: 'HABITS',
+                  level: AppLogLevel.error,
+                  error: e,
+                  stackTrace: s,
+                );
+              }
+            }
+            emit(state.copyWith(entries: entries));
+          },
+          onError: (Object e, StackTrace s) {
+            'Error in observeEntries: $e'.appLog(
               tag: 'HABITS',
               level: AppLogLevel.error,
               error: e,
               stackTrace: s,
             );
-          }
-        }
-        emit(state.copyWith(entries: entries));
-      }, onError: (Object e, StackTrace s) {
-        'Error in observeEntries: $e'.appLog(
-          tag: 'HABITS',
-          level: AppLogLevel.error,
-          error: e,
-          stackTrace: s,
+          },
         );
-      });
+  }
+
+  void onAppResumed() {
+    if (_currentUid != null) {
+      _subscribeEntries(_currentUid!);
     }
   }
 
@@ -86,61 +106,42 @@ class HabitsCubit extends Cubit<HabitsState> {
     _habitsSub?.cancel();
     _entriesSub?.cancel();
 
-    _habitsSub = _repo.observeHabits(uid).listen((rawList) {
-      final habits = <Habit>[];
-      for (final m in rawList) {
-        try {
-          habits.add(Habit.fromJson(m));
-        } catch (e, s) {
-          final id = m['id'] ?? 'unknown';
-          'Failed to parse habit ($id): $e'.appLog(
-            tag: 'HABITS',
-            level: AppLogLevel.error,
-            error: e,
-            stackTrace: s,
-          );
-        }
-      }
-      emit(state.copyWith(
-        habits: habits,
-        fetch: state.fetch.toSuccess(data: habits),
-      ));
-    }, onError: (Object e, StackTrace s) {
-      'Error in observeHabits: $e'.appLog(
-        tag: 'HABITS',
-        level: AppLogLevel.error,
-        error: e,
-        stackTrace: s,
-      );
-    });
+    _habitsSub = _repo
+        .observeHabits(uid)
+        .listen(
+          (rawList) {
+            final habits = <Habit>[];
+            for (final m in rawList) {
+              try {
+                habits.add(Habit.fromJson(m));
+              } catch (e, s) {
+                final id = m['id'] ?? 'unknown';
+                'Failed to parse habit ($id): $e'.appLog(
+                  tag: 'HABITS',
+                  level: AppLogLevel.error,
+                  error: e,
+                  stackTrace: s,
+                );
+              }
+            }
+            emit(
+              state.copyWith(
+                habits: habits,
+                fetch: state.fetch.toSuccess(data: habits),
+              ),
+            );
+          },
+          onError: (Object e, StackTrace s) {
+            'Error in observeHabits: $e'.appLog(
+              tag: 'HABITS',
+              level: AppLogLevel.error,
+              error: e,
+              stackTrace: s,
+            );
+          },
+        );
 
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
-    final windowKey = DaySettings.dayKey(thirtyDaysAgo);
-
-    _entriesSub = _repo.observeEntries(uid, windowStartKey: windowKey).listen((rawList) {
-      final entries = <Entry>[];
-      for (final m in rawList) {
-        try {
-          entries.add(Entry.fromJson(m));
-        } catch (e, s) {
-          final id = m['id'] ?? 'unknown';
-          'Failed to parse entry ($id): $e'.appLog(
-            tag: 'HABITS',
-            level: AppLogLevel.error,
-            error: e,
-            stackTrace: s,
-          );
-        }
-      }
-      emit(state.copyWith(entries: entries));
-    }, onError: (Object e, StackTrace s) {
-      'Error in observeEntries: $e'.appLog(
-        tag: 'HABITS',
-        level: AppLogLevel.error,
-        error: e,
-        stackTrace: s,
-      );
-    });
+    _subscribeEntries(uid);
   }
 
   Future<void> toggleCheckIn({
@@ -198,9 +199,13 @@ class HabitsCubit extends Cubit<HabitsState> {
         logicalDayKey: dayKey,
       );
     } catch (e, s) {
-      emit(state.copyWith(
-        action: state.action.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
-      ));
+      emit(
+        state.copyWith(
+          action: state.action.toFailed(
+            fault: Fault.fromObjectAndStackTrace(e, s),
+          ),
+        ),
+      );
     }
   }
 
@@ -233,9 +238,13 @@ class HabitsCubit extends Cubit<HabitsState> {
         logicalDayKey: dayKey,
       );
     } catch (e, s) {
-      emit(state.copyWith(
-        action: state.action.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
-      ));
+      emit(
+        state.copyWith(
+          action: state.action.toFailed(
+            fault: Fault.fromObjectAndStackTrace(e, s),
+          ),
+        ),
+      );
     }
   }
 
@@ -250,7 +259,10 @@ class HabitsCubit extends Cubit<HabitsState> {
 
     final nextSortOrder = state.habits.isEmpty
         ? 0
-        : (state.habits.map((h) => h.sortOrder).reduce((a, b) => a > b ? a : b) + 1);
+        : (state.habits
+                  .map((h) => h.sortOrder)
+                  .reduce((a, b) => a > b ? a : b) +
+              1);
 
     final habit = Habit(
       id: Habit.generateId(name: name),
@@ -271,9 +283,13 @@ class HabitsCubit extends Cubit<HabitsState> {
     } on Fault catch (f) {
       emit(state.copyWith(action: state.action.toFailed(fault: f)));
     } catch (e, s) {
-      emit(state.copyWith(
-        action: state.action.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
-      ));
+      emit(
+        state.copyWith(
+          action: state.action.toFailed(
+            fault: Fault.fromObjectAndStackTrace(e, s),
+          ),
+        ),
+      );
     }
   }
 
@@ -287,9 +303,13 @@ class HabitsCubit extends Cubit<HabitsState> {
     } on Fault catch (f) {
       emit(state.copyWith(action: state.action.toFailed(fault: f)));
     } catch (e, s) {
-      emit(state.copyWith(
-        action: state.action.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
-      ));
+      emit(
+        state.copyWith(
+          action: state.action.toFailed(
+            fault: Fault.fromObjectAndStackTrace(e, s),
+          ),
+        ),
+      );
     }
   }
 
@@ -303,9 +323,13 @@ class HabitsCubit extends Cubit<HabitsState> {
     } on Fault catch (f) {
       emit(state.copyWith(action: state.action.toFailed(fault: f)));
     } catch (e, s) {
-      emit(state.copyWith(
-        action: state.action.toFailed(fault: Fault.fromObjectAndStackTrace(e, s)),
-      ));
+      emit(
+        state.copyWith(
+          action: state.action.toFailed(
+            fault: Fault.fromObjectAndStackTrace(e, s),
+          ),
+        ),
+      );
     }
   }
 
