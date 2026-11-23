@@ -9,6 +9,15 @@ class _Body extends StatefulWidget {
 
 class _BodyState extends State<_Body> {
   int _currentIndex = 0;
+  final Set<int> _visitedTabs = {0};
+
+  void _selectTab(int index) {
+    if (_currentIndex == index && _visitedTabs.contains(index)) return;
+    setState(() {
+      _visitedTabs.add(index);
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,11 +36,20 @@ class _BodyState extends State<_Body> {
           backgroundColor: Colors.transparent,
           body: IndexedStack(
             index: _currentIndex,
-            children: const [
-              _DashboardTab(),
-              _GoalsTab(),
-              _ProgressTab(),
-              _SettingsTab(),
+            children: [
+              const _DashboardTab(),
+              if (_visitedTabs.contains(1))
+                const _GoalsTab()
+              else
+                const SizedBox.shrink(),
+              if (_visitedTabs.contains(2))
+                const _ProgressTab()
+              else
+                const SizedBox.shrink(),
+              if (_visitedTabs.contains(3))
+                const _SettingsTab()
+              else
+                const SizedBox.shrink(),
             ],
           ),
           bottomNavigationBar: Container(
@@ -52,7 +70,7 @@ class _BodyState extends State<_Body> {
                         icon: Icons.local_fire_department_rounded,
                         label: 'Today',
                         isSelected: _currentIndex == 0,
-                        onTap: () => setState(() => _currentIndex = 0),
+                        onTap: () => _selectTab(0),
                       ),
                     ),
                     Expanded(
@@ -60,7 +78,7 @@ class _BodyState extends State<_Body> {
                         icon: Icons.track_changes_rounded,
                         label: 'Goals',
                         isSelected: _currentIndex == 1,
-                        onTap: () => setState(() => _currentIndex = 1),
+                        onTap: () => _selectTab(1),
                       ),
                     ),
                     Expanded(
@@ -68,7 +86,7 @@ class _BodyState extends State<_Body> {
                         icon: Icons.insights_rounded,
                         label: 'Progress',
                         isSelected: _currentIndex == 2,
-                        onTap: () => setState(() => _currentIndex = 2),
+                        onTap: () => _selectTab(2),
                       ),
                     ),
                     Expanded(
@@ -76,7 +94,7 @@ class _BodyState extends State<_Body> {
                         icon: Icons.settings_rounded,
                         label: 'Settings',
                         isSelected: _currentIndex == 3,
-                        onTap: () => setState(() => _currentIndex = 3),
+                        onTap: () => _selectTab(3),
                       ),
                     ),
                   ],

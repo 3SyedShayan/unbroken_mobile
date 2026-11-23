@@ -198,16 +198,7 @@ class _SettingsTab extends StatelessWidget {
                     ),
                   ),
                   Space.y.t24,
-                  Center(
-                    child: Column(
-                      children: [
-                        Text('Unbroken Mobile v1.0.0', style: AppText.b2.cl(AppColors.inkFaint)),
-                        Space.y.t04,
-                        Text('MIT License · Keep the streak going 🔥',
-                            style: AppText.l1.cl(AppColors.inkMuted)),
-                      ],
-                    ),
-                  ),
+                  const Center(child: _AppVersionFooter()),
                   Space.y.t24,
                 ],
               ),
@@ -631,6 +622,54 @@ class _NotificationTimeTile extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _AppVersionFooter extends StatefulWidget {
+  const _AppVersionFooter();
+
+  @override
+  State<_AppVersionFooter> createState() => _AppVersionFooterState();
+}
+
+class _AppVersionFooterState extends State<_AppVersionFooter> {
+  String _versionLabel = 'Unbroken Mobile';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      final version = info.version.trim();
+      final build = info.buildNumber.trim();
+      if (version.isNotEmpty) {
+        setState(() {
+          _versionLabel = build.isNotEmpty
+              ? 'Unbroken Mobile v$version+$build'
+              : 'Unbroken Mobile v$version';
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    App.init(context);
+    return Column(
+      children: [
+        Text(_versionLabel, style: AppText.b2.cl(AppColors.inkFaint)),
+        Space.y.t04,
+        Text(
+          'MIT License · Keep the streak going 🔥',
+          style: AppText.l1.cl(AppColors.inkMuted),
+        ),
+      ],
     );
   }
 }
